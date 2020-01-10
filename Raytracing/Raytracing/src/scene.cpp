@@ -11,6 +11,8 @@ Creation date: 1/8/2020
 #include "collision.h"
 #include <iostream>
 #include <fstream>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 
 vec3 extract_vec3(std::string line)
 {
@@ -102,57 +104,65 @@ Scene::Scene(const std::string & filepath, int width, int height)
 			vec3 right = extract_vec3(text_right);
 			float eye = std::stof(text_eye);
 
-			float step_x = static_cast<float>(1.f / (width / 2.f));
-			float step_y = static_cast<float>(1.f / (height / 2.f));
+			vec3 forward = glm::normalize(glm::cross(up,right));
+			vec3 start = center - forward * eye;
 
-			vec3 forward = glm::cross(up,right);
-			vec3 start = center - forward;
+			int halfWidth = width / 2;
+			int halfHeigth = height / 2;
 
-			for (float y = -1; y < 1; y += step_y)
-			{
-				for (float x = -1; x < 1; x += step_x)
+			for( int i = 0; i < height; i++)
+				for (int j = 0; j < width; j++)
 				{
-					vec3 Q = center + y * up + x * right;
-					Ray ray{ start, glm::normalize(Q - start)};
+					vec3 P = center + static_cast<float>(j - halfWidth + 0.5f) / halfWidth * right - static_cast<float>(i - halfHeigth + 0.5f) / halfHeigth * up;
+					Ray ray{ start, glm::normalize(P - start) };
 					rays.push_back(ray);
+					Intersect(ray);
+
 				}
-			}
 
 
 		}
 	}
 
 	file.close();
+
+	GenerateImage();
 }
 
-void Scene::Intersect()
+void Scene::Intersect(const Ray & ray)
 {
-	intersection_data.clear();
 
-	for (auto R : rays)
+	float d_max =FLT_MAX - 1.f;
+	int index = -1;
+	for (int i = 0; i < spheres.size(); i++)
 	{
-		float d_max = FLT_MAX - 1;
-		int index = -1;
-		for (int i = 0; i < spheres.size(); i++)
+		float d = intersection_ray_sphere(ray, spheres[i]);
+
+		if (d > 0.f && d < d_max)
 		{
-			float d = intersection_ray_sphere(R, spheres[i]);
-
-			if (d > 0.f && d < d_max)
-			{
-				d_max = d;
-				index = i;
-			}
-
+			d_max = d;
+			index = i;
 		}
 
-		if (index == -1)
-			intersection_data.push_back(vec3{ 0,0,0 });
-		else
-			intersection_data.push_back(spheres[index].color);
 	}
+
+	if (index == -1)
+		intersection_data.push_back(vec3{ 0,0,0 });
+	else
+		intersection_data.push_back(spheres[index].color);
+
+	
 }
+
 
 void Scene::GenerateImage()
 {
-
+	std::vector<char> converted_data;
+	for (auto data : intersection_data)
+	{
+		converted_data.push_back(static_cast<char>(data.x * 255.f));
+		converted_data.push_back(static_cast<char>(data.y * 255.f));
+		converted_data.push_back(static_cast<char>(data.z * 255.f));
+	}
+	stbi_write_bmp("Outout.bmp", width, height, 3, converted_data.data());
 }

@@ -15,7 +15,7 @@ class Scene
 {
 public:
 	Scene(const std::string & filepath, int width, int height);
-	void Intersect();
+	void Intersect(const Ray & ray);
 	void GenerateImage();
 private:
 	std::vector<Sphere> spheres;
