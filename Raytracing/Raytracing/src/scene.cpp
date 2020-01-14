@@ -107,14 +107,14 @@ Scene::Scene(const std::string & filepath, int width, int height)
 			vec3 forward = glm::normalize(glm::cross(up,right));
 			vec3 start = center - forward * eye;
 
-			int halfWidth = width / 2;
-			int halfHeigth = height / 2;
+			float halfWidth  = static_cast<float>(width / 2);
+			float halfHeigth = static_cast<float>(height / 2);
 
 			for( int i = 0; i < height; i++)
 				for (int j = 0; j < width; j++)
 				{
-					vec3 P = center + static_cast<float>(j - halfWidth + 0.5f) / halfWidth * right - static_cast<float>(i - halfHeigth + 0.5f) / halfHeigth * up;
-					Ray ray{ start, glm::normalize(P - start) };
+					vec3 P = center + static_cast<float>((j - halfWidth + 0.5f) / halfWidth) * right - static_cast<float>((i - halfHeigth + 0.5f) / halfHeigth) * up;
+					Ray ray{ start,P - start};
 					rays.push_back(ray);
 					Intersect(ray);
 
@@ -132,13 +132,13 @@ Scene::Scene(const std::string & filepath, int width, int height)
 void Scene::Intersect(const Ray & ray)
 {
 
-	float d_max =FLT_MAX - 1.f;
+	float d_max = FLT_MAX - 1.f;
 	int index = -1;
 	for (int i = 0; i < spheres.size(); i++)
 	{
 		float d = intersection_ray_sphere(ray, spheres[i]);
 
-		if (d > 0.f && d < d_max)
+		if (d >= 0.f && d <= d_max)
 		{
 			d_max = d;
 			index = i;
@@ -157,12 +157,12 @@ void Scene::Intersect(const Ray & ray)
 
 void Scene::GenerateImage()
 {
-	std::vector<char> converted_data;
+	std::vector<unsigned char> converted_data;
 	for (auto data : intersection_data)
 	{
-		converted_data.push_back(static_cast<char>(data.x * 255.f));
-		converted_data.push_back(static_cast<char>(data.y * 255.f));
-		converted_data.push_back(static_cast<char>(data.z * 255.f));
+		converted_data.push_back(static_cast<unsigned char>(data.x * 255.99f));
+		converted_data.push_back(static_cast<unsigned char>(data.y * 255.99f));
+		converted_data.push_back(static_cast<unsigned char>(data.z * 255.99f));
 	}
-	stbi_write_bmp("Outout.bmp", width, height, 3, converted_data.data());
+	stbi_write_png("Out.png", width, height, 3, converted_data.data(),0);
 }

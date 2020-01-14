@@ -14,6 +14,7 @@ Creation date:1/8/2020
 int main(int argc, char *argv[])
 {
 	Scene scene{"SampleScene01.txt",std::stoi(argv[1]) ,std::stoi(argv[2]) };
+	return 0;
 }
 
 

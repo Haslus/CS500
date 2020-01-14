@@ -23,7 +23,7 @@ float intersection_ray_sphere(const Ray & ray, const Sphere & sphere)
 
 	float discr = b * b - c;
 
-	if (discr < cEpsilon)
+	if (discr < 0)
 		return -1;
 
 	float result = -b - glm::sqrt(discr);

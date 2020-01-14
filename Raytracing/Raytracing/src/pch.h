@@ -34,6 +34,6 @@ using glm::vec3;
 using glm::vec4;
 using glm::mat3;
 using glm::mat4;
-const float cEpsilon = 0.005f;
+const float cEpsilon = 0.00000001f;
 
 #endif //PCH_H
