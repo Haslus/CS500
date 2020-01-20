@@ -33,3 +33,8 @@ float intersection_ray_sphere(const Ray & ray, const Sphere & sphere)
 
 	return result;
 }
+
+float intersection_ray_box(const Ray & ray, const Box & box)
+{
+	return 0.0f;
+}

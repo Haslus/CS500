@@ -89,6 +89,19 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 			spheres.push_back(sphere);
 		}
 
+		if (line.find("BOX") != std::string::npos)
+		{
+			//HWL
+			std::string text_position = line.substr(line.find('(') + 1, line.find(')') - line.find('('));
+			std::getline(file, line);
+			std::string text_heigth = line.substr(line.find('(') + 1, line.find(')') - line.find('('));
+			line = line.substr(line.find(')') + 1);
+			std::string text_width = line.substr(line.find('(') + 1, line.find(')') - line.find('('));
+			line = line.substr(line.find(')') + 1);
+			std::string text_length = line.substr(line.find('(') + 1, line.find(')') - line.find('('));
+			
+		}
+
 		if (line.find("CAMERA") != std::string::npos)
 		{
 			std::string text_center = line.substr(line.find('(') + 1, line.find(')') - line.find('(') - 1);

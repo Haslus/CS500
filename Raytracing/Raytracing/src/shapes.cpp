@@ -22,3 +22,18 @@ Sphere::Sphere(const vec3 & center, const float & radius, const vec3& color)
 	this->color = color;
 }
 
+Box::Box(const vec3 & position, const vec3 & weigth, const vec3 & heigth, const vec3 & length)
+{
+	this->position = position;
+	this->width = width;
+	this->heigth = heigth;
+	this->length = length;
+	//Front
+	vec3 c1 = position;
+	vec3 n1 = glm::cross(length, heigth);
+	//Back
+}
+
+Plane::Plane(const vec3 & point, const vec3 & normal)
+{
+}

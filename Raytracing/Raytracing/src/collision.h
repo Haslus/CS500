@@ -12,3 +12,5 @@ Creation date: 1/8/2020
 #include "shapes.h"
 
 float intersection_ray_sphere(const Ray& ray, const Sphere& sphere);
+
+float intersection_ray_box(const Ray& ray, const Box& box);
