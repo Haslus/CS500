@@ -29,7 +29,7 @@ vec3 extract_vec3(std::string line)
 	return result;
 }
 
-Scene::Scene(const std::string & filepath, int width, int height)
+Scene::Scene(const std::string & filepath, int width, int height, std::string output_name)
 {
 	std::ifstream file;
 	file.open(filepath);
@@ -125,7 +125,7 @@ Scene::Scene(const std::string & filepath, int width, int height)
 	}
 
 	file.close();
-
+	name = output_name;
 	GenerateImage();
 }
 
@@ -164,5 +164,5 @@ void Scene::GenerateImage()
 		converted_data.push_back(static_cast<unsigned char>(data.y * 255.99f));
 		converted_data.push_back(static_cast<unsigned char>(data.z * 255.99f));
 	}
-	stbi_write_png("Out.png", width, height, 3, converted_data.data(),0);
+	stbi_write_png(name.c_str(), width, height, 3, converted_data.data(),0);
 }

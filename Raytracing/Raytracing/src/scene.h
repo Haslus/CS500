@@ -14,7 +14,7 @@ Creation date: 1/8/2020
 class Scene
 {
 public:
-	Scene(const std::string & filepath, int width, int height);
+	Scene(const std::string & filepath, int width, int height, std::string output_name = "Out.png");
 	void Intersect(const Ray & ray);
 	void GenerateImage();
 private:
@@ -22,6 +22,6 @@ private:
 	std::vector<Ray> rays;
 	int width;
 	int height;
-
+	std::string name;
 	std::vector<vec3> intersection_data;
 };
