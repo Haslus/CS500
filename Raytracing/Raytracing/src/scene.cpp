@@ -52,53 +52,22 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 
 		if (line.find("SPHERE") != std::string::npos)
 		{
+			std::string line2;
+			std::getline(file, line2);
+			std::string lines[2] = { line,line2 };
+			spheres.push_back(parse_sphere(lines));
 			
-			std::string text_center = line.substr(line.find('(') + 1, line.find(')') - line.find('('));
-			std::string text_radius = line.substr(line.find(')') + 1);
-			std::getline(file, line);
-			std::string text_color = line;
-
-			std::string center_x = text_center.substr(0, text_center.find(','));
-			text_center = text_center.substr(text_center.find(',') + 1);
-			std::string center_y = text_center.substr(0, text_center.find(','));
-			text_center = text_center.substr(text_center.find(',') + 1);
-			std::string center_z = text_center.substr(0, text_center.find(')'));
-
-			std::string color_r = text_color.substr(text_color.find('(') + 1, text_color.find(','));
-			text_color = text_color.substr(text_color.find(',') + 1);
-			std::string color_g = text_color.substr(0, text_color.find(','));
-			text_color = text_color.substr(text_color.find(',') + 1);
-			std::string color_b = text_color.substr(0, text_color.find(')'));
-
-			vec3 center;
-			float radius;
-			vec3 color;
-
-			center.x = std::stof(center_x);
-			center.y = std::stof(center_y);
-			center.z = std::stof(center_z);
-
-			radius = std::stof(text_radius);
-
-			color.r = std::stof(color_r);
-			color.g = std::stof(color_g);
-			color.b = std::stof(color_b);
-
-			Sphere sphere{center,radius,color};
-
-			spheres.push_back(sphere);
 		}
 
 		if (line.find("BOX") != std::string::npos)
 		{
-			//HWL
-			std::string text_position = line.substr(line.find('(') + 1, line.find(')') - line.find('('));
-			std::getline(file, line);
-			std::string text_heigth = line.substr(line.find('(') + 1, line.find(')') - line.find('('));
-			line = line.substr(line.find(')') + 1);
-			std::string text_width = line.substr(line.find('(') + 1, line.find(')') - line.find('('));
-			line = line.substr(line.find(')') + 1);
-			std::string text_length = line.substr(line.find('(') + 1, line.find(')') - line.find('('));
+			std::string line2;
+			std::getline(file, line2);
+			std::string line3;
+			std::getline(file, line3);
+			std::string lines[3] = { line,line2,line3 };
+			boxes.push_back(parse_box(lines));
+
 			
 		}
 
@@ -162,7 +131,7 @@ void Scene::Intersect(const Ray & ray)
 	if (index == -1)
 		intersection_data.push_back(vec3{ 0,0,0 });
 	else
-		intersection_data.push_back(spheres[index].color);
+		intersection_data.push_back(spheres[index].mat.diffuse_color);
 
 	
 }
@@ -178,4 +147,67 @@ void Scene::GenerateImage()
 		converted_data.push_back(static_cast<unsigned char>(data.z * 255.99f));
 	}
 	stbi_write_png(name.c_str(), width, height, 3, converted_data.data(),0);
+}
+
+Sphere parse_sphere(const std::string * lines)
+{
+	std::string text_center = lines[0].substr(lines[0].find('(') + 1, lines[0].find(')') - lines[0].find('('));
+	std::string text_radius = lines[0].substr(lines[0].find(')') + 1);
+	std::string text_material = lines[1];
+
+	std::string center_x = text_center.substr(0, text_center.find(','));
+	text_center = text_center.substr(text_center.find(',') + 1);
+	std::string center_y = text_center.substr(0, text_center.find(','));
+	text_center = text_center.substr(text_center.find(',') + 1);
+	std::string center_z = text_center.substr(0, text_center.find(')'));
+
+	std::string color_r = text_material.substr(text_material.find('(') + 1, text_material.find(','));
+	text_material = text_material.substr(text_material.find(',') + 1);
+	std::string color_g = text_material.substr(0, text_material.find(','));
+	text_material = text_material.substr(text_material.find(',') + 1);
+	std::string color_b = text_material.substr(0, text_material.find(')'));
+
+	text_material = text_material.substr(text_material.find(')') + 2);
+	std::string spec_ref = text_material.substr(0, text_material.find(' '));
+	text_material = text_material.substr(text_material.find(' ') + 1);
+	std::string spec_exp = text_material.substr(0);
+
+	vec3 center;
+	float radius;
+	vec3 color;
+	float specular_reflection;
+	float specular_exponent;
+
+	center.x = std::stof(center_x);
+	center.y = std::stof(center_y);
+	center.z = std::stof(center_z);
+
+	radius = std::stof(text_radius);
+
+	color.r = std::stof(color_r);
+	color.g = std::stof(color_g);
+	color.b = std::stof(color_b);
+
+	specular_reflection = std::stof(spec_ref);
+	specular_exponent = std::stof(spec_exp);
+	Sphere sphere{ center,radius,color,specular_reflection,specular_exponent };
+
+	return sphere;
+}
+
+Box parse_box(const std::string * lines)
+{
+	std::string text_center = lines[0].substr(lines[0].find('(') + 1, lines[0].find(')') - lines[0].find('(') - 1);
+	
+	std::string text_vectors = lines[1];
+	std::string text_length = text_vectors.substr(text_vectors.find_first_of('('), text_vectors.find_first_of(')') - text_vectors.find_first_of('('));
+	text_vectors = text_vectors.substr(text_vectors.find_first_of(')') + 1);
+	std::string text_width = text_vectors.substr(text_vectors.find_first_of('('), text_vectors.find_first_of(')') - text_vectors.find_first_of('('));
+	text_vectors = text_vectors.substr(text_vectors.find_first_of(')') + 1);
+	std::string text_height = text_vectors.substr(text_vectors.find_first_of('('), text_vectors.find_first_of(')') - text_vectors.find_first_of('('));
+
+	std::string text_material = lines[2];
+
+
+	return Box();
 }

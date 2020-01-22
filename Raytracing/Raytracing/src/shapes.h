@@ -13,8 +13,12 @@ Creation date: 1/8/2020
 
 struct Material
 {
-	vec3 color;
-	float shininess;
+	vec3 diffuse_color;
+	float specular_reflection;
+	float specular_exponent;
+
+	Material() = default;
+	Material(const vec3& diffuse,const float & spec_ref, const float & spec_exp);
 
 };
 
@@ -31,10 +35,11 @@ struct Ray
 struct Sphere {
 	vec3	center;
 	float	radius;
-	vec3	color;
+	Material mat;
 
 	Sphere() = default;
-	Sphere(const vec3& center, const float & radius, const vec3& color);
+	Sphere(const vec3& center, const float & radius, const vec3& diffuse, 
+		const float & spec_ref, const float & spec_exp);
 };
 
 struct Plane {
@@ -48,13 +53,14 @@ struct Plane {
 struct Box {
 	vec3 position;
 	vec3 width;
-	vec3 heigth;
+	vec3 height;
 	vec3 length;
 	//Front,Back,Left,Right,Bottom,Top
 	Plane planes[6];
 	Material mat;
 
 	Box() = default;
-	Box(const vec3& position, const vec3& weigth, const vec3& heigth, const vec3& length);
-
+	Box(const vec3 & position, const vec3 & weigth, const vec3 & heigth,
+		const vec3 & length, const vec3& diffuse, const float & spec_ref,
+		const float & spec_exp);
 };

@@ -11,6 +11,9 @@ Creation date: 1/8/2020
 #include "pch.h"
 #include "shapes.h"
 
+Sphere parse_sphere(const std::string * lines);
+Box parse_box(const std::string * lines);
+
 class Scene
 {
 public:
@@ -19,6 +22,7 @@ public:
 	void GenerateImage();
 private:
 	std::vector<Sphere> spheres;
+	std::vector<Box> boxes;
 	std::vector<Ray> rays;
 	int width;
 	int height;
