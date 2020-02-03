@@ -19,13 +19,13 @@ int main(int argc, char *argv[])
 		std::cout << "No argument, using default size (500 x 500)." << std::endl;
 		std::cout << "No argument, using default input file (SampleScene01.txt)." << std::endl;
 		std::cout << "No argument, using default output file name (Out.png)." << std::endl;
-		Scene scene{ "SampleScene01.txt",500,500 };
+		Scene scene{ "SampleScene02.txt",500,500 };
 	}
 	if (argc == 3)
 	{
 		std::cout << "No argument, using default input file (SampleScene01.txt)." << std::endl;
 		std::cout << "No argument, using default output file name (Out.png)." << std::endl;
-		Scene scene{ "SampleScene01.txt", std::stoi(argv[1]) ,std::stoi(argv[2]) };
+		Scene scene{ "SampleScene02.txt", std::stoi(argv[1]) ,std::stoi(argv[2]) };
 	}
 	if (argc == 4)
 	{

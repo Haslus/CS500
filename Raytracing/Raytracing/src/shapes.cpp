@@ -8,6 +8,7 @@ Creation date: 1/8/2020
 ----------------------------------------------------------------------------------------------------------*/
 
 #include "shapes.h"
+#include "collision.h"
 
 Ray::Ray(const vec3 & start, const vec3 & dir)
 {
@@ -21,6 +22,11 @@ Sphere::Sphere(const vec3 & center, const float & radius, const vec3& diffuse,
 	this->center = center;
 	this->radius = radius;
 	this->mat = Material{diffuse,spec_ref,spec_exp};
+}
+
+float Sphere::intersection(const Ray & ray)
+{
+	return intersection_ray_sphere(ray,*this);
 }
 
 Box::Box(const vec3 & position, const vec3 & length, const vec3 & width,
@@ -59,6 +65,11 @@ Box::Box(const vec3 & position, const vec3 & length, const vec3 & width,
 	planes[5] = Plane{ c6,n6 };
 }
 
+float Box::intersection(const Ray & ray)
+{
+	return intersection_ray_box(ray, *this);
+}
+
 Plane::Plane(const vec3 & point, const vec3 & normal)
 {
 	this->point = point;
@@ -70,4 +81,11 @@ Material::Material(const vec3 & diffuse, const float & spec_ref, const float & s
 	diffuse_color = diffuse;
 	specular_reflection = spec_ref;
 	specular_exponent = spec_exp;
+}
+
+Light::Light(const vec3 & position, const vec3 & color, const float & radius)
+{
+	this->position = position;
+	this->color = color;
+	this->radius = radius;
 }

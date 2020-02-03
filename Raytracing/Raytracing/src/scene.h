@@ -13,6 +13,7 @@ Creation date: 1/8/2020
 
 Sphere parse_sphere(const std::string * lines);
 Box parse_box(const std::string * lines);
+Light parse_light(const std::string * lines);
 
 class Scene
 {
@@ -21,11 +22,17 @@ public:
 	void Intersect(const Ray & ray);
 	void GenerateImage();
 private:
+
+	std::vector<Base*> objects;
 	std::vector<Sphere> spheres;
 	std::vector<Box> boxes;
+	std::vector<Light> lights;
+	vec3 global_ambient;
 	std::vector<Ray> rays;
+
 	int width;
 	int height;
+
 	std::string name;
 	std::vector<vec3> intersection_data;
 };

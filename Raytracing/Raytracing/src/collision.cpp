@@ -36,5 +36,40 @@ float intersection_ray_sphere(const Ray & ray, const Sphere & sphere)
 
 float intersection_ray_box(const Ray & ray, const Box & box)
 {
-	return 0.0f;
+	vec2 intersection = { 0.0f, FLT_MAX };
+
+	for (int i = 0; i < 6; i++)
+	{
+		vec2 temp_intersection;
+		float d2 = glm::dot(ray.dir, box.planes[i].normal);
+		float d1 = glm::dot(ray.start - box.planes[i].point, box.planes[i].normal);
+		
+		if (d2 < 0.0)
+		{
+			float t = -d1 / d2;
+			temp_intersection = {glm::max(0.0f,t),FLT_MAX};
+		}
+		else if (d2 > 0.0)
+		{
+			float t = -d1 / d2;
+			temp_intersection = {0, glm::max(0.0f,t)};
+		}
+		else if (d1 > 0.0)
+		{
+			return -1;
+		}
+		else
+		{
+			temp_intersection = { 0.0f, FLT_MAX };
+		}
+
+		intersection = { glm::max(temp_intersection.x,intersection.x),
+		glm::min(temp_intersection.y,intersection.y) };
+
+	}
+
+	if (intersection.x > intersection.y || intersection.x < 0 || intersection.y < 0)
+		return -1;
+
+	return intersection.x;
 }

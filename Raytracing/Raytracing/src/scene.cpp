@@ -56,7 +56,7 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 			std::getline(file, line2);
 			std::string lines[2] = { line,line2 };
 			spheres.push_back(parse_sphere(lines));
-			
+			objects.push_back(new Sphere{ spheres.back() });
 		}
 
 		if (line.find("BOX") != std::string::npos)
@@ -67,8 +67,19 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 			std::getline(file, line3);
 			std::string lines[3] = { line,line2,line3 };
 			boxes.push_back(parse_box(lines));
-
+			objects.push_back(new Box{ boxes.back() });
 			
+		}
+
+		if (line.find("LIGHT") != std::string::npos)
+		{
+			lights.push_back(parse_light(&line));
+		}
+
+		if (line.find("AMBIENT") != std::string::npos)
+		{
+			std::string text_ambient = line.substr(line.find('(') + 1, line.find(')') - line.find('(') - 1);
+			global_ambient = extract_vec3(text_ambient);
 		}
 
 		if (line.find("CAMERA") != std::string::npos)
@@ -116,9 +127,9 @@ void Scene::Intersect(const Ray & ray)
 
 	float d_max = FLT_MAX - 1.f;
 	int index = -1;
-	for (int i = 0; i < spheres.size(); i++)
+	for (int i = 0; i < objects.size(); i++)
 	{
-		float d = intersection_ray_sphere(ray, spheres[i]);
+		float d = objects[i]->intersection(ray);
 
 		if (d >= 0.f && d <= d_max)
 		{
@@ -128,10 +139,17 @@ void Scene::Intersect(const Ray & ray)
 
 	}
 
+
 	if (index == -1)
 		intersection_data.push_back(vec3{ 0,0,0 });
 	else
-		intersection_data.push_back(spheres[index].mat.diffuse_color);
+	{
+		Material material = objects[index]->mat;
+
+
+
+		//intersection_data.push_back();
+	}
 
 	
 }
@@ -200,14 +218,42 @@ Box parse_box(const std::string * lines)
 	std::string text_center = lines[0].substr(lines[0].find('(') + 1, lines[0].find(')') - lines[0].find('(') - 1);
 	
 	std::string text_vectors = lines[1];
-	std::string text_length = text_vectors.substr(text_vectors.find_first_of('('), text_vectors.find_first_of(')') - text_vectors.find_first_of('('));
-	text_vectors = text_vectors.substr(text_vectors.find_first_of(')') + 1);
-	std::string text_width = text_vectors.substr(text_vectors.find_first_of('('), text_vectors.find_first_of(')') - text_vectors.find_first_of('('));
-	text_vectors = text_vectors.substr(text_vectors.find_first_of(')') + 1);
-	std::string text_height = text_vectors.substr(text_vectors.find_first_of('('), text_vectors.find_first_of(')') - text_vectors.find_first_of('('));
+	std::string text_length = text_vectors.substr(text_vectors.find_first_of('(') + 1, text_vectors.find_first_of(')') - 1);
+	text_vectors = text_vectors.substr(text_vectors.find_first_of(' ') + 1);
+	std::string text_width = text_vectors.substr(text_vectors.find_first_of('(') + 1, text_vectors.find_first_of(')') - 1);
+	text_vectors = text_vectors.substr(text_vectors.find_first_of(' ') + 1);
+	std::string text_height = text_vectors.substr(text_vectors.find_first_of('(') + 1, text_vectors.find_first_of(')') - 1);
 
 	std::string text_material = lines[2];
+	std::string text_diffuse = text_material.substr(text_material.find_first_of('(') + 1, text_material.find_first_of(')') - 1);
+	text_material = text_material.substr(text_material.find_first_of(')') + 2);
+	std::string text_refle = text_material.substr(0, text_material.find_first_of(' ') );
+	text_material = text_material.substr(text_material.find_first_of(' '));
+	std::string text_exp = text_material;
 
+	vec3 center = extract_vec3(text_center);
+	vec3 length = extract_vec3(text_length);
+	vec3 width = extract_vec3(text_width);
+	vec3 height = extract_vec3(text_height);
+	vec3 diffuse = extract_vec3(text_diffuse);
+	float refle = std::stof(text_refle);
+	float exp = std::stof(text_exp);
 
-	return Box();
+	return Box(center, width,height,length,diffuse,refle,exp);
+}
+
+Light parse_light(const std::string * lines)
+{
+	std::string text_components = lines[0];
+	std::string text_position = text_components.substr(text_components.find_first_of('(') + 1, text_components.find_first_of(')') - text_components.find_first_of('(') - 1);
+	text_components = text_components.substr(text_components.find_first_of(')') + 1);
+	std::string text_color = text_components.substr(text_components.find_first_of('(') + 1, text_components.find_first_of(')') - text_components.find_first_of('(') - 1);
+	text_components = text_components.substr(text_components.find_first_of(')') + 1);
+	std::string text_radius = text_components;
+
+	vec3 position = extract_vec3(text_position);
+	vec3 color = extract_vec3(text_color);
+	float radius = std::stof(text_radius);
+
+	return Light(position,color,radius);
 }

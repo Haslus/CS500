@@ -18,7 +18,7 @@ struct Material
 	float specular_exponent;
 
 	Material() = default;
-	Material(const vec3& diffuse,const float & spec_ref, const float & spec_exp);
+	Material(const vec3& diffuse, const float & spec_ref, const float & spec_exp);
 
 };
 
@@ -30,19 +30,30 @@ struct Ray
 	Ray() = default;
 	Ray(const vec3& start, const vec3& dir);
 
+
 };
 
-struct Sphere {
+struct Base
+{
+	Material mat;
+	virtual float intersection(const Ray & ray) { return -1.0f; };
+};
+
+
+struct Sphere : public Base
+{
 	vec3	center;
 	float	radius;
-	Material mat;
+	//Material mat;
 
 	Sphere() = default;
 	Sphere(const vec3& center, const float & radius, const vec3& diffuse, 
 		const float & spec_ref, const float & spec_exp);
+	float intersection(const Ray & ray);
 };
 
-struct Plane {
+struct Plane 
+{
 	vec3 point;
 	vec3 normal;
 
@@ -50,17 +61,28 @@ struct Plane {
 	Plane(const vec3& point, const vec3& normal);
 };
 
-struct Box {
+struct Box : public Base
+{
 	vec3 position;
 	vec3 width;
 	vec3 height;
 	vec3 length;
 	//Front,Back,Left,Right,Bottom,Top
 	Plane planes[6];
-	Material mat;
+	//Material mat;
 
 	Box() = default;
-	Box(const vec3 & position, const vec3 & weigth, const vec3 & heigth,
+	Box(const vec3 & position, const vec3 & width, const vec3 & heigth,
 		const vec3 & length, const vec3& diffuse, const float & spec_ref,
 		const float & spec_exp);
+	float intersection(const Ray & ray);
+};
+
+struct Light
+{
+	vec3 position;
+	vec3 color;
+	float radius;
+	Light() = default;
+	Light(const vec3 & position, const vec3 & color, const float & radius);
 };
