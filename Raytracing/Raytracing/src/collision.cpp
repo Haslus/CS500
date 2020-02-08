@@ -14,24 +14,32 @@ float intersection_ray_sphere(const Ray & ray, const Sphere & sphere)
 	if (ray.dir == vec3(0, 0, 0))
 		return -1;
 
-	vec3 V = ray.start - sphere.center;
-	float b = glm::dot(V, glm::normalize(ray.dir));
-	float c = glm::dot(V, V) - sphere.radius * sphere.radius;
+	vec3 v = ray.start - sphere.center;
 
-	if (c > 0.f && b > 0.f)
-		return -1;
 
-	float discr = b * b - c;
 
-	if (discr < 0)
-		return -1;
+	float a = glm::length(ray.dir) * glm::length(ray.dir);
+	float b = 2.0f * glm::dot(ray.dir,v);
+	float c = glm::length(v) *  glm::length(v) - sphere.radius * sphere.radius;
 
-	float result = -b - glm::sqrt(discr);
+	float discr = b * b - 4 * a * c;
 
-	if (result < 0.f)
-		result = 0.f;
+	if (discr < 0.0f)
+		return -1.0f;
+	else
+	{
+		float t1 = (-b + glm::sqrt(discr)) / (2.0f * a);
+		float t2 = (-b - glm::sqrt(discr)) / (2.0f * a);
 
-	return result;
+
+		if (t1 < 0.0f)
+			return -1;
+		else if (t2 < 0.0f)
+			return t1;
+		else
+			return t2;
+
+	}
 }
 
 float intersection_ray_box(const Ray & ray, const Box & box)
@@ -52,7 +60,7 @@ float intersection_ray_box(const Ray & ray, const Box & box)
 		else if (d2 > 0.0)
 		{
 			float t = -d1 / d2;
-			temp_intersection = {0, glm::max(0.0f,t)};
+			temp_intersection = {-1, glm::max(0.0f,t)};
 		}
 		else if (d1 > 0.0)
 		{
@@ -60,7 +68,7 @@ float intersection_ray_box(const Ray & ray, const Box & box)
 		}
 		else
 		{
-			temp_intersection = { 0.0f, FLT_MAX };
+			temp_intersection = { -1, FLT_MAX };
 		}
 
 		intersection = { glm::max(temp_intersection.x,intersection.x),
@@ -68,8 +76,11 @@ float intersection_ray_box(const Ray & ray, const Box & box)
 
 	}
 
-	if (intersection.x > intersection.y || intersection.x < 0 || intersection.y < 0)
+	if (intersection.x > intersection.y)
 		return -1;
+
+	if (intersection.x < 0)
+		return intersection.y;
 
 	return intersection.x;
 }

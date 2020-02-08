@@ -37,6 +37,7 @@ struct Base
 {
 	Material mat;
 	virtual float intersection(const Ray & ray) { return -1.0f; };
+	virtual vec3 normal_at_intersection(const Ray & ray, float t) { return vec3();}
 };
 
 
@@ -47,9 +48,11 @@ struct Sphere : public Base
 	//Material mat;
 
 	Sphere() = default;
-	Sphere(const vec3& center, const float & radius, const vec3& diffuse, 
-		const float & spec_ref, const float & spec_exp);
+	Sphere(const vec3& center, const float & radius, const vec3& diffuse = vec3(), 
+		const float & spec_ref = 0, const float & spec_exp = 0);
 	float intersection(const Ray & ray);
+	vec3 normal_at_intersection(const Ray & ray, float t);
+	vec3 get_random_point();
 };
 
 struct Plane 
@@ -76,6 +79,7 @@ struct Box : public Base
 		const vec3 & length, const vec3& diffuse, const float & spec_ref,
 		const float & spec_exp);
 	float intersection(const Ray & ray);
+	vec3 normal_at_intersection(const Ray & ray, float t);
 };
 
 struct Light
@@ -85,4 +89,16 @@ struct Light
 	float radius;
 	Light() = default;
 	Light(const vec3 & position, const vec3 & color, const float & radius);
+
+	Sphere bulb;
+};
+
+
+struct Camera
+{
+
+	vec3 center;
+	vec3 up;
+	vec3 right;
+	float eye;
 };

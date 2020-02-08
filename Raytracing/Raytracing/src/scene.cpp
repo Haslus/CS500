@@ -92,26 +92,12 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 			line = line.substr(line.find(')') + 1);
 			std::string text_eye = line.substr(0);
 
-			vec3 center = extract_vec3(text_center);
-			vec3 up = extract_vec3(text_up);
-			vec3 right = extract_vec3(text_right);
-			float eye = std::stof(text_eye);
+			camera.center = extract_vec3(text_center);
+			camera.up = extract_vec3(text_up);
+			camera.right = extract_vec3(text_right);
+			camera.eye = std::stof(text_eye);
 
-			vec3 forward = glm::normalize(glm::cross(up,right));
-			vec3 start = center - forward * eye;
-
-			float halfWidth  = static_cast<float>(width / 2);
-			float halfHeigth = static_cast<float>(height / 2);
-
-			for( int i = 0; i < height; i++)
-				for (int j = 0; j < width; j++)
-				{
-					vec3 P = center + static_cast<float>((j - halfWidth + 0.5f) / halfWidth) * right - static_cast<float>((i - halfHeigth + 0.5f) / halfHeigth) * up;
-					Ray ray{ start,P - start};
-					rays.push_back(ray);
-					Intersect(ray);
-
-				}
+			
 
 
 		}
@@ -119,6 +105,7 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 
 	file.close();
 	name = output_name;
+	GenerateRays();
 	GenerateImage();
 }
 
@@ -127,6 +114,7 @@ void Scene::Intersect(const Ray & ray)
 
 	float d_max = FLT_MAX - 1.f;
 	int index = -1;
+	float t = -1;
 	for (int i = 0; i < objects.size(); i++)
 	{
 		float d = objects[i]->intersection(ray);
@@ -135,24 +123,78 @@ void Scene::Intersect(const Ray & ray)
 		{
 			d_max = d;
 			index = i;
+			t = d;
 		}
 
 	}
 
-
-	if (index == -1)
+	if (index == -1 || t == -1)
 		intersection_data.push_back(vec3{ 0,0,0 });
 	else
 	{
 		Material material = objects[index]->mat;
+		vec3 normal = objects[index]->normal_at_intersection(ray, t);
+		vec3 color = global_ambient;
+		
+		vec3 P = (ray.start + ray.dir * t);
+		for (auto light : lights)
+		{
+			//Calculate Diffuse + Specular
+			vec3 dir = light.position - P;
 
+			dir = glm::normalize(dir);
 
+			vec3 p_diffuse = material.diffuse_color * glm::max(glm::dot(normal,dir),0.0f) * light.color;
 
-		//intersection_data.push_back();
+			vec3 reflection = glm::normalize(glm::reflect(-dir, normal));
+			vec3 p_specular = material.specular_reflection * glm::pow(glm::max(glm::dot(reflection, dir),0.0f),material.specular_exponent) * light.color;
+
+			vec3 current_color = p_diffuse + p_specular;
+
+			//Calculate Shadows
+			float shadow_factor = 0;
+			for (int s = 0; s < samples; s++)
+			{
+				Ray ray{ P, glm::normalize(light.bulb.get_random_point() - P) };
+
+				if (intersection_ray_sphere(ray, light.bulb) != -1.0f)
+				{
+					shadow_factor += 1;
+				}
+			}
+			shadow_factor = static_cast<float>(shadow_factor / samples);
+
+			current_color *= shadow_factor;
+			color += current_color;
+		}
+
+		color = glm::clamp(color, vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+		intersection_data.push_back(color);
 	}
 
 	
 }
+
+void Scene::GenerateRays()
+{
+	
+	vec3 forward = glm::normalize(glm::cross(camera.up, camera.right));
+	vec3 start = camera.center - forward * camera.eye;
+
+	float halfWidth = static_cast<float>(width / 2);
+	float halfHeigth = static_cast<float>(height / 2);
+
+	for (int i = 0; i < height; i++)
+		for (int j = 0; j < width; j++)
+		{
+			vec3 P = camera.center + static_cast<float>((j - halfWidth + 0.5f) / halfWidth) * camera.right - static_cast<float>((i - halfHeigth + 0.5f) / halfHeigth) * camera.up;
+			Ray ray{ start,glm::normalize(P - start) };
+			rays.push_back(ray);
+			Intersect(ray);
+
+		}
+}
+
 
 
 void Scene::GenerateImage()
@@ -239,7 +281,7 @@ Box parse_box(const std::string * lines)
 	float refle = std::stof(text_refle);
 	float exp = std::stof(text_exp);
 
-	return Box(center, width,height,length,diffuse,refle,exp);
+	return Box(center, length, width, height,diffuse,refle,exp);
 }
 
 Light parse_light(const std::string * lines)

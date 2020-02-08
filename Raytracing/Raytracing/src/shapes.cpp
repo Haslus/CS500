@@ -29,19 +29,36 @@ float Sphere::intersection(const Ray & ray)
 	return intersection_ray_sphere(ray,*this);
 }
 
+vec3 Sphere::normal_at_intersection(const Ray & ray, float t)
+{
+	vec3 intersection = ray.start + glm::normalize(ray.dir) * t;
+
+	vec3 normal = glm::normalize(intersection - this->center);
+
+	return normal;
+
+}
+
+vec3 Sphere::get_random_point()
+{
+	vec3 random_vec = glm::normalize(vec3{rand() % 50 - 50,rand() % 50 - 50 ,rand() % 50 - 50 });
+	return center + random_vec * radius;
+	
+}
+
 Box::Box(const vec3 & position, const vec3 & length, const vec3 & width,
 	const vec3 & height, const vec3& diffuse,const float & spec_ref, 
 	const float & spec_exp)
 {
 	this->position = position;
+	this->length = length;
 	this->width = width;
 	this->height = height;
-	this->length = length;
 	this->mat = Material{ diffuse,spec_ref,spec_exp };
 
 	//Front
 	vec3 c1 = position;
-	vec3 n1 = glm::cross(length, height);
+	vec3 n1 = glm::normalize(glm::cross(length, height));
 	planes[0] = Plane{ c1,n1 };
 	//Back
 	vec3 c2 = position + width;
@@ -49,7 +66,7 @@ Box::Box(const vec3 & position, const vec3 & length, const vec3 & width,
 	planes[1] = Plane{ c2,n2 };
 	//Left
 	vec3 c3 = position;
-	vec3 n3 = glm::cross(height, width);
+	vec3 n3 = glm::normalize(glm::cross(height, width));
 	planes[2] = Plane{ c3,n3 };
 	//Right
 	vec3 c4 = position + length;
@@ -57,7 +74,7 @@ Box::Box(const vec3 & position, const vec3 & length, const vec3 & width,
 	planes[3] = Plane{ c4,n4 };
 	//Bottom
 	vec3 c5 = position;
-	vec3 n5 = glm::cross(width, length);
+	vec3 n5 = glm::normalize(glm::cross(width, length));
 	planes[4] = Plane{ c5,n5 };
 	//Top
 	vec3 c6 = position + height;
@@ -68,6 +85,21 @@ Box::Box(const vec3 & position, const vec3 & length, const vec3 & width,
 float Box::intersection(const Ray & ray)
 {
 	return intersection_ray_box(ray, *this);
+}
+
+vec3 Box::normal_at_intersection(const Ray & ray, float t)
+{
+	vec3 intersection = ray.start + ray.dir * t;
+
+	for (int i = 0; i < 6; i++)
+	{
+
+		if (std::abs(glm::dot(intersection - planes[i].point, planes[i].normal)) < cEpsilon)
+		{
+			return planes[i].normal;
+		}
+	}
+	return vec3();
 }
 
 Plane::Plane(const vec3 & point, const vec3 & normal)
@@ -88,4 +120,6 @@ Light::Light(const vec3 & position, const vec3 & color, const float & radius)
 	this->position = position;
 	this->color = color;
 	this->radius = radius;
+
+	this->bulb = Sphere{position,radius};
 }

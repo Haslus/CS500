@@ -20,6 +20,7 @@ class Scene
 public:
 	Scene(const std::string & filepath, int width, int height, std::string output_name = "Out.png");
 	void Intersect(const Ray & ray);
+	void GenerateRays();
 	void GenerateImage();
 private:
 
@@ -33,6 +34,10 @@ private:
 	int width;
 	int height;
 
+	Camera camera;
+
 	std::string name;
 	std::vector<vec3> intersection_data;
+
+	int samples = 100;
 };
