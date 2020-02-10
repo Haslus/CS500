@@ -45,7 +45,6 @@ struct Sphere : public Base
 {
 	vec3	center;
 	float	radius;
-	//Material mat;
 
 	Sphere() = default;
 	Sphere(const vec3& center, const float & radius, const vec3& diffuse = vec3(), 
@@ -72,7 +71,6 @@ struct Box : public Base
 	vec3 length;
 	//Front,Back,Left,Right,Bottom,Top
 	Plane planes[6];
-	//Material mat;
 
 	Box() = default;
 	Box(const vec3 & position, const vec3 & width, const vec3 & heigth,
@@ -89,7 +87,7 @@ struct Light
 	float radius;
 	Light() = default;
 	Light(const vec3 & position, const vec3 & color, const float & radius);
-
+	//Physical representation of bulb
 	Sphere bulb;
 };
 

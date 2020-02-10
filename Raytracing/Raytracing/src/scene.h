@@ -18,7 +18,9 @@ Light parse_light(const std::string * lines);
 class Scene
 {
 public:
+	Scene() = default;
 	Scene(const std::string & filepath, int width, int height, std::string output_name = "Out.png");
+	void Setup();
 	void Intersect(const Ray & ray);
 	void GenerateRays();
 	void GenerateImage();
@@ -40,4 +42,8 @@ private:
 	std::vector<vec3> intersection_data;
 
 	int samples = 100;
+
+	float Epsilon = 0.01f;
+	bool useHS = false;
+	bool useSS = true;
 };

@@ -13,31 +13,35 @@ Creation date:1/8/2020
 
 int main(int argc, char *argv[])
 {
-	
+	Scene scene;
+
 	if (argc == 1)
 	{
 		std::cout << "No argument, using default size (500 x 500)." << std::endl;
 		std::cout << "No argument, using default input file (SampleScene01.txt)." << std::endl;
 		std::cout << "No argument, using default output file name (Out.png)." << std::endl;
-		Scene scene{ "SampleScene02.txt",500,500 };
+		scene = { "SampleScene02.txt",500,500 };
+	
 	}
-	if (argc == 3)
+	else if (argc == 3)
 	{
 		std::cout << "No argument, using default input file (SampleScene01.txt)." << std::endl;
 		std::cout << "No argument, using default output file name (Out.png)." << std::endl;
-		Scene scene{ "SampleScene02.txt", std::stoi(argv[1]) ,std::stoi(argv[2]) };
+		scene = { "SampleScene02.txt", std::stoi(argv[1]) ,std::stoi(argv[2]) };
 	}
-	if (argc == 4)
+	else if (argc == 4)
 	{
 		
 		std::cout << "No argument, using default output file name (Out.png)." << std::endl;
-		Scene scene{ argv[3], std::stoi(argv[1]) ,std::stoi(argv[2]) };
+		scene = { argv[3], std::stoi(argv[1]) ,std::stoi(argv[2]) };
 	}
 	else if (argc == 5)
 	{
-		Scene scene{ argv[3],std::stoi(argv[1]) ,std::stoi(argv[2]), argv[4] };
+		scene = { argv[3],std::stoi(argv[1]) ,std::stoi(argv[2]), argv[4] };
 	}
-	
+
+	scene.Setup();
+
 	return 0;
 }
 

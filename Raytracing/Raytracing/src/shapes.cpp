@@ -9,13 +9,21 @@ Creation date: 1/8/2020
 
 #include "shapes.h"
 #include "collision.h"
+/***********************************************
 
+	Custom Constructor
+
+************************************************/
 Ray::Ray(const vec3 & start, const vec3 & dir)
 {
 	this->start = start;
 	this->dir = dir;
 }
+/***********************************************
 
+	Custom Constructor
+
+************************************************/
 Sphere::Sphere(const vec3 & center, const float & radius, const vec3& diffuse,
 	const float & spec_ref, const float & spec_exp)
 {
@@ -23,12 +31,20 @@ Sphere::Sphere(const vec3 & center, const float & radius, const vec3& diffuse,
 	this->radius = radius;
 	this->mat = Material{diffuse,spec_ref,spec_exp};
 }
+/***********************************************
 
+	Intersect
+
+************************************************/
 float Sphere::intersection(const Ray & ray)
 {
 	return intersection_ray_sphere(ray,*this);
 }
+/***********************************************
 
+	Get normal at the intersection
+
+************************************************/
 vec3 Sphere::normal_at_intersection(const Ray & ray, float t)
 {
 	vec3 intersection = ray.start + glm::normalize(ray.dir) * t;
@@ -38,14 +54,24 @@ vec3 Sphere::normal_at_intersection(const Ray & ray, float t)
 	return normal;
 
 }
+/***********************************************
 
+	Get a random point from the sphere
+
+************************************************/
 vec3 Sphere::get_random_point()
 {
-	vec3 random_vec = glm::normalize(vec3{rand() % 50 - 50,rand() % 50 - 50 ,rand() % 50 - 50 });
-	return center + random_vec * radius;
+	vec3 random_vec = vec3{ rand() / (RAND_MAX + 1.0) - 1.0, 
+		rand() / (RAND_MAX + 1.0f) - 1.0, 
+		rand() / (RAND_MAX + 1.0) - 1.0 };
+	return center + random_vec * (radius * (rand() / (RAND_MAX + 1.0f)));
 	
 }
+/***********************************************
 
+	Custom Constructor
+
+************************************************/
 Box::Box(const vec3 & position, const vec3 & length, const vec3 & width,
 	const vec3 & height, const vec3& diffuse,const float & spec_ref, 
 	const float & spec_exp)
@@ -81,12 +107,20 @@ Box::Box(const vec3 & position, const vec3 & length, const vec3 & width,
 	vec3 n6 = -n5;
 	planes[5] = Plane{ c6,n6 };
 }
+/***********************************************
 
+	Intersect
+
+************************************************/
 float Box::intersection(const Ray & ray)
 {
 	return intersection_ray_box(ray, *this);
 }
+/***********************************************
 
+	Get normal at the intersection point
+
+************************************************/
 vec3 Box::normal_at_intersection(const Ray & ray, float t)
 {
 	vec3 intersection = ray.start + ray.dir * t;
@@ -101,20 +135,32 @@ vec3 Box::normal_at_intersection(const Ray & ray, float t)
 	}
 	return vec3();
 }
+/***********************************************
 
+	Custom Constructor
+
+************************************************/
 Plane::Plane(const vec3 & point, const vec3 & normal)
 {
 	this->point = point;
 	this->normal = normal;
 }
+/***********************************************
 
+	Custom Constructor
+
+************************************************/
 Material::Material(const vec3 & diffuse, const float & spec_ref, const float & spec_exp)
 {
 	diffuse_color = diffuse;
 	specular_reflection = spec_ref;
 	specular_exponent = spec_exp;
 }
+/***********************************************
 
+	Custom Constructor
+
+************************************************/
 Light::Light(const vec3 & position, const vec3 & color, const float & radius)
 {
 	this->position = position;

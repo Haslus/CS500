@@ -14,6 +14,11 @@ Creation date: 1/8/2020
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+/***********************************************
+
+	Extract a vec3 from a string
+
+************************************************/
 vec3 extract_vec3(std::string line)
 {
 	std::string x = line.substr(0, line.find(','));
@@ -28,7 +33,11 @@ vec3 extract_vec3(std::string line)
 	result.z = std::stof(z);
 	return result;
 }
+/***********************************************
 
+	Parser of the scene
+
+************************************************/
 Scene::Scene(const std::string & filepath, int width, int height, std::string output_name)
 {
 	std::ifstream file;
@@ -105,16 +114,30 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 
 	file.close();
 	name = output_name;
+	
+}
+/***********************************************
+
+	Setup the scene, by generating rays
+
+************************************************/
+void Scene::Setup()
+{
 	GenerateRays();
 	GenerateImage();
 }
+/***********************************************
 
+	Throw a Ray
+
+************************************************/
 void Scene::Intersect(const Ray & ray)
 {
 
 	float d_max = FLT_MAX - 1.f;
 	int index = -1;
 	float t = -1;
+	//Intersect objects
 	for (int i = 0; i < objects.size(); i++)
 	{
 		float d = objects[i]->intersection(ray);
@@ -134,47 +157,88 @@ void Scene::Intersect(const Ray & ray)
 	{
 		Material material = objects[index]->mat;
 		vec3 normal = objects[index]->normal_at_intersection(ray, t);
-		vec3 color = global_ambient;
-		
+		vec3 color = global_ambient * material.diffuse_color;
+
 		vec3 P = (ray.start + ray.dir * t);
+		vec3 viewVec = glm::normalize(ray.start - P);
+
+		vec3 ID{0,0,0};
+		vec3 IS{ 0,0,0 };
+
 		for (auto light : lights)
 		{
 			//Calculate Diffuse + Specular
-			vec3 dir = light.position - P;
+			vec3 lightDir = glm::normalize(light.position - P);
 
-			dir = glm::normalize(dir);
-
-			vec3 p_diffuse = material.diffuse_color * glm::max(glm::dot(normal,dir),0.0f) * light.color;
-
-			vec3 reflection = glm::normalize(glm::reflect(-dir, normal));
-			vec3 p_specular = material.specular_reflection * glm::pow(glm::max(glm::dot(reflection, dir),0.0f),material.specular_exponent) * light.color;
-
-			vec3 current_color = p_diffuse + p_specular;
-
-			//Calculate Shadows
-			float shadow_factor = 0;
-			for (int s = 0; s < samples; s++)
+			float shadow_factor = 1;
+			if (useHS)
 			{
-				Ray ray{ P, glm::normalize(light.bulb.get_random_point() - P) };
-
-				if (intersection_ray_sphere(ray, light.bulb) != -1.0f)
+				//Calculate Hard Shadow
+				Ray ray{ P + normal * Epsilon, lightDir };
+				bool HS_intersection = false;
+				for (int i = 0; i < objects.size(); i++)
 				{
-					shadow_factor += 1;
-				}
-			}
-			shadow_factor = static_cast<float>(shadow_factor / samples);
+					float d = objects[i]->intersection(ray);
 
-			current_color *= shadow_factor;
-			color += current_color;
+					if (d != -1.0f)
+					{
+						HS_intersection = true;
+					}
+
+				}
+
+				if(HS_intersection)
+					shadow_factor = 0;
+			}
+			
+			else if (useSS)
+			{
+				//Calculate Soft Shadows
+				shadow_factor = 0;
+				for (int s = 0; s < samples; s++)
+				{
+					Ray ray{ P + normal * Epsilon, glm::normalize(light.bulb.get_random_point() - P) };
+
+					for (int i = 0; i < objects.size(); i++)
+					{
+						float d = objects[i]->intersection(ray);
+
+						if (d != -1.0f)
+						{
+							shadow_factor++;
+							break;
+						}
+
+					}
+				}
+
+				shadow_factor = 1.0f - static_cast<float>(shadow_factor / samples);
+			}
+
+			
+
+			//Calculate Diffuse factor
+			ID += glm::max(glm::dot(normal, lightDir), 0.0f) * light.color * shadow_factor;
+
+			//Calculate Specular factor
+			vec3 reflection = glm::reflect(-lightDir, normal);
+			IS += glm::pow(glm::max(glm::dot(reflection, viewVec), 0.0f), material.specular_exponent) * light.color * shadow_factor;
+
 		}
 
+		color += material.diffuse_color * ID + material.specular_reflection * IS;
+		//Clamp color
 		color = glm::clamp(color, vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
 		intersection_data.push_back(color);
 	}
 
 	
 }
+/***********************************************
 
+	Generate Rays
+
+************************************************/
 void Scene::GenerateRays()
 {
 	
@@ -184,6 +248,7 @@ void Scene::GenerateRays()
 	float halfWidth = static_cast<float>(width / 2);
 	float halfHeigth = static_cast<float>(height / 2);
 
+	//Generate rays
 	for (int i = 0; i < height; i++)
 		for (int j = 0; j < width; j++)
 		{
@@ -195,7 +260,11 @@ void Scene::GenerateRays()
 		}
 }
 
+/***********************************************
 
+	Store Image
+
+************************************************/
 
 void Scene::GenerateImage()
 {
@@ -208,7 +277,11 @@ void Scene::GenerateImage()
 	}
 	stbi_write_png(name.c_str(), width, height, 3, converted_data.data(),0);
 }
+/***********************************************
 
+	Parse a sphere
+
+************************************************/
 Sphere parse_sphere(const std::string * lines)
 {
 	std::string text_center = lines[0].substr(lines[0].find('(') + 1, lines[0].find(')') - lines[0].find('('));
