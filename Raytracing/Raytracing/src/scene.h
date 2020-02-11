@@ -24,7 +24,6 @@ public:
 	void Intersect(const Ray & ray);
 	void GenerateRays();
 	void GenerateImage();
-private:
 
 	std::vector<Base*> objects;
 	std::vector<Sphere> spheres;
@@ -38,12 +37,12 @@ private:
 
 	Camera camera;
 
-	std::string name;
+	std::string input_name;
+	std::string output_name;
 	std::vector<vec3> intersection_data;
 
-	int samples = 100;
-
-	float Epsilon = 0.01f;
-	bool useHS = false;
-	bool useSS = true;
+	int samples;
+	float epsilon;
+	bool useHS;
+	bool useSS;
 };

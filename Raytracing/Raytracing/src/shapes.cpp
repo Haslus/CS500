@@ -9,6 +9,7 @@ Creation date: 1/8/2020
 
 #include "shapes.h"
 #include "collision.h"
+#include <glm\gtc\random.hpp>
 /***********************************************
 
 	Custom Constructor
@@ -61,10 +62,9 @@ vec3 Sphere::normal_at_intersection(const Ray & ray, float t)
 ************************************************/
 vec3 Sphere::get_random_point()
 {
-	vec3 random_vec = vec3{ rand() / (RAND_MAX + 1.0) - 1.0, 
-		rand() / (RAND_MAX + 1.0f) - 1.0, 
-		rand() / (RAND_MAX + 1.0) - 1.0 };
-	return center + random_vec * (radius * (rand() / (RAND_MAX + 1.0f)));
+	vec3 random_vec = glm::ballRand(radius);
+
+	return center + random_vec;
 	
 }
 /***********************************************

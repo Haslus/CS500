@@ -40,80 +40,144 @@ vec3 extract_vec3(std::string line)
 ************************************************/
 Scene::Scene(const std::string & filepath, int width, int height, std::string output_name)
 {
-	std::ifstream file;
-	file.open(filepath);
-	std::string line;
-
-	if (!file)
+	//Read Scene File
 	{
-		std::cout << "Invalid path." << std::endl;
-		std::abort();
+		std::ifstream file;
+		file.open(filepath);
+		std::string line;
+
+		if (!file)
+		{
+			std::cout << "Invalid path." << std::endl;
+			std::abort();
+		}
+
+		this->width = width;
+		this->height = height;
+
+		while (std::getline(file, line))
+		{
+			//Ignore if it starts with #
+			if (line[0] == '#')
+				continue;
+
+			if (line.find("SPHERE") != std::string::npos)
+			{
+				std::string line2;
+				std::getline(file, line2);
+				std::string lines[2] = { line,line2 };
+				spheres.push_back(parse_sphere(lines));
+				objects.push_back(new Sphere{ spheres.back() });
+			}
+
+			if (line.find("BOX") != std::string::npos)
+			{
+				std::string line2;
+				std::getline(file, line2);
+				std::string line3;
+				std::getline(file, line3);
+				std::string lines[3] = { line,line2,line3 };
+				boxes.push_back(parse_box(lines));
+				objects.push_back(new Box{ boxes.back() });
+
+			}
+
+			if (line.find("LIGHT") != std::string::npos)
+			{
+				lights.push_back(parse_light(&line));
+			}
+
+			if (line.find("AMBIENT") != std::string::npos)
+			{
+				std::string text_ambient = line.substr(line.find('(') + 1, line.find(')') - line.find('(') - 1);
+				global_ambient = extract_vec3(text_ambient);
+			}
+
+			if (line.find("CAMERA") != std::string::npos)
+			{
+				std::string text_center = line.substr(line.find('(') + 1, line.find(')') - line.find('(') - 1);
+				line = line.substr(line.find(')') + 1);
+				std::string text_right = line.substr(2, line.find(')') - 2);
+				line = line.substr(line.find(')') + 1);
+				std::string text_up = line.substr(2, line.find(')') - 2);
+				line = line.substr(line.find(')') + 1);
+				std::string text_eye = line.substr(0);
+
+				camera.center = extract_vec3(text_center);
+				camera.up = extract_vec3(text_up);
+				camera.right = extract_vec3(text_right);
+				camera.eye = std::stof(text_eye);
+
+
+
+
+			}
+		}
+
+		file.close();
+		this->output_name = output_name;
+		this->input_name = filepath;
 	}
+	
 
-	this->width = width;
-	this->height = height;
-
-	while (std::getline(file, line))
+	//Read Config File
 	{
-		//Ignore if it starts with #
-		if (line[0] == '#')
-			continue;
+		std::ifstream file;
+		file.open("./config.txt");
+		std::string line;
 
-		if (line.find("SPHERE") != std::string::npos)
+		if (!file)
 		{
-			std::string line2;
-			std::getline(file, line2);
-			std::string lines[2] = { line,line2 };
-			spheres.push_back(parse_sphere(lines));
-			objects.push_back(new Sphere{ spheres.back() });
+			std::cout << "Invalid path." << std::endl;
+			std::abort();
 		}
 
-		if (line.find("BOX") != std::string::npos)
+		while (std::getline(file, line))
 		{
-			std::string line2;
-			std::getline(file, line2);
-			std::string line3;
-			std::getline(file, line3);
-			std::string lines[3] = { line,line2,line3 };
-			boxes.push_back(parse_box(lines));
-			objects.push_back(new Box{ boxes.back() });
-			
+			//Ignore if it starts with #
+			if (line[0] == '#')
+				continue;
+
+			if (line.find("HARD_SHADOWS") != std::string::npos)
+			{
+				if (line.find("true") != std::string::npos)
+				{
+					useHS = true;
+				}
+				else
+				{
+					useHS = false;
+				}
+			}
+
+			if (line.find("SOFT_SHADOWS") != std::string::npos)
+			{
+				if (line.find("true") != std::string::npos)
+				{
+					useSS = true;
+				}
+				else
+				{
+					useSS = false;
+				}
+			}
+
+			if (line.find("EPSILON") != std::string::npos)
+			{
+				std::string epsilon = line.substr(line.find('=') + 1);
+				this->epsilon = std::stof(epsilon);
+			}
+
+			if (line.find("SAMPLES") != std::string::npos)
+			{
+				std::string samples = line.substr(line.find('=') + 1);
+				this->samples = std::stoi(samples);
+			}
 		}
 
-		if (line.find("LIGHT") != std::string::npos)
-		{
-			lights.push_back(parse_light(&line));
-		}
-
-		if (line.find("AMBIENT") != std::string::npos)
-		{
-			std::string text_ambient = line.substr(line.find('(') + 1, line.find(')') - line.find('(') - 1);
-			global_ambient = extract_vec3(text_ambient);
-		}
-
-		if (line.find("CAMERA") != std::string::npos)
-		{
-			std::string text_center = line.substr(line.find('(') + 1, line.find(')') - line.find('(') - 1);
-			line = line.substr(line.find(')') + 1);
-			std::string text_right = line.substr(2, line.find(')') - 2);
-			line = line.substr(line.find(')') + 1);
-			std::string text_up = line.substr(2, line.find(')') - 2);
-			line = line.substr(line.find(')') + 1);
-			std::string text_eye = line.substr(0);
-
-			camera.center = extract_vec3(text_center);
-			camera.up = extract_vec3(text_up);
-			camera.right = extract_vec3(text_right);
-			camera.eye = std::stof(text_eye);
-
-			
-
-
-		}
+		file.close();
 	}
-
-	file.close();
-	name = output_name;
+	
 	
 }
 /***********************************************
@@ -165,7 +229,7 @@ void Scene::Intersect(const Ray & ray)
 		vec3 ID{0,0,0};
 		vec3 IS{ 0,0,0 };
 
-		for (auto light : lights)
+		for (Light & light : lights)
 		{
 			//Calculate Diffuse + Specular
 			vec3 lightDir = glm::normalize(light.position - P);
@@ -174,7 +238,7 @@ void Scene::Intersect(const Ray & ray)
 			if (useHS)
 			{
 				//Calculate Hard Shadow
-				Ray ray{ P + normal * Epsilon, lightDir };
+				Ray ray{ P + normal * epsilon, lightDir };
 				bool HS_intersection = false;
 				for (int i = 0; i < objects.size(); i++)
 				{
@@ -183,6 +247,7 @@ void Scene::Intersect(const Ray & ray)
 					if (d != -1.0f)
 					{
 						HS_intersection = true;
+						break;
 					}
 
 				}
@@ -197,7 +262,7 @@ void Scene::Intersect(const Ray & ray)
 				shadow_factor = 0;
 				for (int s = 0; s < samples; s++)
 				{
-					Ray ray{ P + normal * Epsilon, glm::normalize(light.bulb.get_random_point() - P) };
+					Ray ray{ P + normal * epsilon, glm::normalize(light.bulb.get_random_point() - P) };
 
 					for (int i = 0; i < objects.size(); i++)
 					{
@@ -275,7 +340,7 @@ void Scene::GenerateImage()
 		converted_data.push_back(static_cast<unsigned char>(data.y * 255.99f));
 		converted_data.push_back(static_cast<unsigned char>(data.z * 255.99f));
 	}
-	stbi_write_png(name.c_str(), width, height, 3, converted_data.data(),0);
+	stbi_write_png(output_name.c_str(), width, height, 3, converted_data.data(),0);
 }
 /***********************************************
 
@@ -327,7 +392,11 @@ Sphere parse_sphere(const std::string * lines)
 
 	return sphere;
 }
+/***********************************************
 
+	Parse a box
+
+************************************************/
 Box parse_box(const std::string * lines)
 {
 	std::string text_center = lines[0].substr(lines[0].find('(') + 1, lines[0].find(')') - lines[0].find('(') - 1);
@@ -356,7 +425,11 @@ Box parse_box(const std::string * lines)
 
 	return Box(center, length, width, height,diffuse,refle,exp);
 }
+/***********************************************
 
+	Parse a light
+
+************************************************/
 Light parse_light(const std::string * lines)
 {
 	std::string text_components = lines[0];

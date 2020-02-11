@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
 	if (argc == 1)
 	{
 		std::cout << "No argument, using default size (500 x 500)." << std::endl;
-		std::cout << "No argument, using default input file (SampleScene01.txt)." << std::endl;
+		std::cout << "No argument, using default input file (SampleScene02.txt)." << std::endl;
 		std::cout << "No argument, using default output file name (Out.png)." << std::endl;
 		scene = { "SampleScene02.txt",500,500 };
 	
@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
 	{
 		scene = { argv[3],std::stoi(argv[1]) ,std::stoi(argv[2]), argv[4] };
 	}
-
+	std::cout << "Generating Image of size " << scene.width << "x" << scene.height << " from " << scene.input_name << std::endl;
 	scene.Setup();
 
 	return 0;
