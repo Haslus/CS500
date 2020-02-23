@@ -41,7 +41,8 @@ int main(int argc, char *argv[])
 	}
 	std::cout << "Generating Image of size " << scene.width << "x" << scene.height << " from " << scene.input_name << std::endl;
 	scene.Setup();
-
+	scene.InitializeWindow();
+	scene.UpdateWindow();
 	return 0;
 }
 

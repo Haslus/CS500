@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="dependencies\include\glad\glad.c" />
     <ClCompile Include="src\collision.cpp" />
     <ClCompile Include="src\pch.cpp" />
     <ClCompile Include="src\main.cpp" />
@@ -26,6 +27,7 @@
     <ClCompile Include="src\shapes.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="dependencies\include\glad\glad.h" />
     <ClInclude Include="src\collision.h" />
     <ClInclude Include="src\scene.h" />
     <ClInclude Include="src\pch.h" />
@@ -92,7 +94,7 @@
     <OutDir>$(SolutionDir)/bin/</OutDir>
     <IntDir>$(SolutionDir)/intermediate/$(Configuration)/</IntDir>
     <IncludePath>$(ProjectDir)/dependencies/include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(ProjectDir)\dependencies\lib\x64-Debug;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(ProjectDir)/dependencies/lib/x64-Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -128,11 +130,13 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(ProjectDir)\dependencies\lib\x64-Debug</AdditionalLibraryDirectories>
+      <AdditionalDependencies>gtestd.lib;glfw3dll.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -172,6 +176,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(ProjectDir)\dependencies\lib\x64-Release</AdditionalLibraryDirectories>
+      <AdditionalDependencies>gtest.lib;glfw3dll.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

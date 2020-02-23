@@ -8,12 +8,16 @@ Creation date: 1/8/2020
 ----------------------------------------------------------------------------------------------------------*/
 
 #pragma once
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+
 #include "pch.h"
 #include "shapes.h"
 
 Sphere parse_sphere(const std::string * lines);
 Box parse_box(const std::string * lines);
 Light parse_light(const std::string * lines);
+Material parse_material(const std::string * lines);
 
 class Scene
 {
@@ -24,6 +28,13 @@ public:
 	void Intersect(const Ray & ray);
 	void GenerateRays();
 	void GenerateImage();
+
+	//Window Stuff
+	void InitializeWindow();
+	void UpdateWindow();
+
+	GLFWwindow* window;
+	//
 
 	std::vector<Base*> objects;
 	std::vector<Sphere> spheres;

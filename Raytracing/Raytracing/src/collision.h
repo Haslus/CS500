@@ -8,9 +8,16 @@ Creation date: 1/8/2020
 ----------------------------------------------------------------------------------------------------------*/
 
 #pragma once
-#include "pch.h"
 #include "shapes.h"
 
 float intersection_ray_sphere(const Ray& ray, const Sphere& sphere);
 
 float intersection_ray_box(const Ray& ray, const Box& box);
+
+float intersection_ray_polygon(const Ray& ray, const SimplePolygon& poly);
+
+float intersection_ray_triangle(const Ray& ray, const Triangle& tri);
+
+bool intersection_point_triangle(const vec3& point, const Triangle& tri);
+
+float intersection_ray_ellipsoid(const Ray& ray, const Ellipsoid& ellip);

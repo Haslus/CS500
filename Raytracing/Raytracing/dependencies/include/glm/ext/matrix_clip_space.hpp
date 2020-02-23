@@ -509,7 +509,7 @@ namespace glm
 	/// @param fovy Specifies the field of view angle, in degrees, in the y direction. Expressed in radians.
 	/// @param aspect Specifies the aspect ratio that determines the field of view in the x direction. The aspect ratio is the ratio of x (width) to y (height).
 	/// @param near Specifies the distance from the viewer to the near clipping plane (always positive).
-	/// @param ep epsilon
+	/// @param ep Epsilon
 	///
 	/// @tparam T A floating-point scalar type
 	template<typename T>

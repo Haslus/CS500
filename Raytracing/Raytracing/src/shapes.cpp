@@ -73,14 +73,13 @@ vec3 Sphere::get_random_point()
 
 ************************************************/
 Box::Box(const vec3 & position, const vec3 & length, const vec3 & width,
-	const vec3 & height, const vec3& diffuse,const float & spec_ref, 
-	const float & spec_exp)
+	const vec3 & height, const Material& mat)
 {
 	this->position = position;
 	this->length = length;
 	this->width = width;
 	this->height = height;
-	this->mat = Material{ diffuse,spec_ref,spec_exp };
+	this->mat = mat;
 
 	//Front
 	vec3 c1 = position;
@@ -150,11 +149,18 @@ Plane::Plane(const vec3 & point, const vec3 & normal)
 	Custom Constructor
 
 ************************************************/
-Material::Material(const vec3 & diffuse, const float & spec_ref, const float & spec_exp)
+Material::Material(const vec3 & diffuse, const float & spec_ref, const float & spec_exp,
+	const vec3& att, const float & elec,
+	const float& magn, const float& rough) 
 {
 	diffuse_color = diffuse;
 	specular_reflection = spec_ref;
 	specular_exponent = spec_exp;
+	attenuation = att;
+	electric_perimittivity = elec;
+	magnetic_permeability = magn;
+	roughness = rough;
+
 }
 /***********************************************
 
@@ -168,4 +174,50 @@ Light::Light(const vec3 & position, const vec3 & color, const float & radius)
 	this->radius = radius;
 
 	this->bulb = Sphere{position,radius};
+}
+
+SimplePolygon::SimplePolygon(const std::vector<vec3>& vertices, const Material & mat)
+{
+	this->vertices = vertices;
+	this->mat = mat;
+	this->number_of_vertices = this->vertices.size();
+
+
+	for (int i = 0; i < number_of_vertices - 2; i++)
+	{
+		triangles.push_back(Triangle{ this->vertices[0],this->vertices[i + 1], this->vertices[i + 2] });
+	}
+}
+
+float SimplePolygon::intersection(const Ray & ray)
+{
+	return intersection_ray_polygon(ray, *this);
+}
+
+Ellipsoid::Ellipsoid(const vec3 & center, const vec3 & u, const vec3 & v, const vec3 & w, const Material & mat)
+{
+	this->center = center;
+	this->u_vector = u;
+	this->v_vector = v;
+	this->w_vector = w;
+	this->mat = mat;
+}
+
+float Ellipsoid::intersection(const Ray & ray)
+{
+	return intersection_ray_ellipsoid(ray, *this);
+}
+
+Triangle::Triangle(const vec3 & vertex0, const vec3 & vertex1, const vec3 & vertex2)
+{
+	vertex_0 = vertex0;
+	vertex_1 = vertex1;
+	vertex_2 = vertex2;
+
+	vec3 a = vertex_1 - vertex_0;
+	vec3 b = vertex_2 - vertex_0;
+
+	vec3 normal = glm::normalize(glm::cross(a, b));
+
+	plane = Plane{ vertex_0, normal };
 }

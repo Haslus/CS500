@@ -7,12 +7,20 @@ Author: Asier Bilbao / asier.b
 Creation date: 1/8/2020
 ----------------------------------------------------------------------------------------------------------*/
 
+
+
 #include "scene.h"
 #include "collision.h"
 #include <iostream>
 #include <fstream>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
+
+static void error_callback(int error, const char* description)
+{
+	fprintf(stderr, "Error: %s\n", description);
+}
+
 
 /***********************************************
 
@@ -80,6 +88,48 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 				boxes.push_back(parse_box(lines));
 				objects.push_back(new Box{ boxes.back() });
 
+			}
+
+			if (line.find("POLYGON") != std::string::npos)
+			{
+				
+				std::string text_number = line.substr(line.find(' ') + 1, line.find('(') - line.find(' ') - 1);
+				int number_of_vertices = std::stoi(text_number);
+				std::vector<vec3> text_vertices;
+
+				while (number_of_vertices > 0)
+				{
+					std::string text_vertex = line.substr(line.find('(') + 1, line.find(')') - line.find('(') - 1);
+					line = line.substr(line.find(')') + 1);
+					text_vertices.push_back(extract_vec3(text_vertex));
+
+					number_of_vertices--;
+
+				}
+
+				std::getline(file, line);
+
+				objects.push_back(new SimplePolygon{ text_vertices,parse_material(&line) });
+			}
+
+			if (line.find("ELLIPSOID") != std::string::npos)
+			{
+				std::string text_center = line.substr(line.find('(') + 1, line.find(')') - line.find('(') - 1);
+				line = line.substr(line.find(')') + 1);
+				std::string text_u = line.substr(2, line.find(')') - 2);
+				line = line.substr(line.find(')') + 1);
+				std::string text_v = line.substr(2, line.find(')') - 2);
+				line = line.substr(line.find(')') + 1);
+				std::string text_w = line.substr(2, line.find(')') - 2);
+
+
+				vec3 center = extract_vec3(text_center);
+				vec3 u = extract_vec3(text_u);
+				vec3 v = extract_vec3(text_v);
+				vec3 w = extract_vec3(text_w);
+
+				std::getline(file, line);
+				objects.push_back(new Ellipsoid{ center,u,v,w,parse_material(&line) });
 			}
 
 			if (line.find("LIGHT") != std::string::npos)
@@ -222,6 +272,10 @@ void Scene::Intersect(const Ray & ray)
 		Material material = objects[index]->mat;
 		vec3 normal = objects[index]->normal_at_intersection(ray, t);
 		vec3 color = global_ambient * material.diffuse_color;
+		
+		//DEBUG
+		intersection_data.push_back(material.diffuse_color);
+		return;
 
 		vec3 P = (ray.start + ray.dir * t);
 		vec3 viewVec = glm::normalize(ray.start - P);
@@ -330,7 +384,6 @@ void Scene::GenerateRays()
 	Store Image
 
 ************************************************/
-
 void Scene::GenerateImage()
 {
 	std::vector<unsigned char> converted_data;
@@ -341,6 +394,47 @@ void Scene::GenerateImage()
 		converted_data.push_back(static_cast<unsigned char>(data.z * 255.99f));
 	}
 	stbi_write_png(output_name.c_str(), width, height, 3, converted_data.data(),0);
+}
+
+void Scene::InitializeWindow()
+{
+	glfwSetErrorCallback(error_callback);
+
+	/* Initialize the library */
+	if (!glfwInit())
+		throw std::invalid_argument("GLFW NOT INITIALIZED");
+
+	/* Create a windowed mode window and its OpenGL context */
+	window = glfwCreateWindow(width, height, "RAYTRACER", NULL, NULL);
+	if (!window)
+	{
+		glfwTerminate();
+		throw std::invalid_argument("WINDOW NOT CREATED");
+	}
+
+	/* Make the window's context current */
+	glfwMakeContextCurrent(window);
+	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+	glfwSwapInterval(1);
+
+
+	/* Loop until the user closes the window */
+	while (!glfwWindowShouldClose(window))
+	{
+		/* Render here */
+		glClear(GL_COLOR_BUFFER_BIT);
+		
+		/* Swap front and back buffers */
+		glfwSwapBuffers(window);
+
+		/* Poll for and process events */
+		glfwPollEvents();
+	}
+
+}
+void Scene::UpdateWindow()
+{
+	
 }
 /***********************************************
 
@@ -408,22 +502,16 @@ Box parse_box(const std::string * lines)
 	text_vectors = text_vectors.substr(text_vectors.find_first_of(' ') + 1);
 	std::string text_height = text_vectors.substr(text_vectors.find_first_of('(') + 1, text_vectors.find_first_of(')') - 1);
 
-	std::string text_material = lines[2];
-	std::string text_diffuse = text_material.substr(text_material.find_first_of('(') + 1, text_material.find_first_of(')') - 1);
-	text_material = text_material.substr(text_material.find_first_of(')') + 2);
-	std::string text_refle = text_material.substr(0, text_material.find_first_of(' ') );
-	text_material = text_material.substr(text_material.find_first_of(' '));
-	std::string text_exp = text_material;
+
+	Material mat = parse_material(&lines[2]);
 
 	vec3 center = extract_vec3(text_center);
 	vec3 length = extract_vec3(text_length);
 	vec3 width = extract_vec3(text_width);
 	vec3 height = extract_vec3(text_height);
-	vec3 diffuse = extract_vec3(text_diffuse);
-	float refle = std::stof(text_refle);
-	float exp = std::stof(text_exp);
 
-	return Box(center, length, width, height,diffuse,refle,exp);
+
+	return Box(center, length, width, height,mat);
 }
 /***********************************************
 
@@ -444,4 +532,32 @@ Light parse_light(const std::string * lines)
 	float radius = std::stof(text_radius);
 
 	return Light(position,color,radius);
+}
+
+Material parse_material(const std::string * lines)
+{
+	std::string text_material = lines[0];
+	std::string text_diffuse = text_material.substr(text_material.find_first_of('(') + 1, text_material.find_first_of(')') - 1);
+	text_material = text_material.substr(text_material.find_first_of(')') + 2);
+	std::string text_refle = text_material.substr(0, text_material.find_first_of(' '));
+	text_material = text_material.substr(text_material.find_first_of(' ') + 1);
+	std::string text_exp = text_material.substr(0, text_material.find_first_of(' '));
+	text_material = text_material.substr(text_material.find_first_of(' ') + 1);
+	std::string text_att = text_material.substr(text_material.find_first_of('(') + 1, text_material.find_first_of(')') - 1);
+	text_material = text_material.substr(text_material.find_first_of(')') + 2);
+	std::string text_elec_perm = text_material.substr(0, text_material.find_first_of(' '));
+	text_material = text_material.substr(text_material.find_first_of(' ') + 1);
+	std::string text_magn_perm = text_material.substr(0, text_material.find_first_of(' '));
+	text_material = text_material.substr(text_material.find_first_of(' ') + 1);
+	std::string text_roughness = text_material.substr(0, text_material.find_first_of(' '));
+	//text_material = text_material.substr(text_material.find_first_of(' ') + 1);
+	vec3 diffuse = extract_vec3(text_diffuse);
+	float refle = std::stof(text_refle);
+	float exp = std::stof(text_exp);
+	vec3 att = extract_vec3(text_att);
+	float elec = std::stof(text_elec_perm);
+	float mag = std::stof(text_magn_perm);
+	float roug = std::stof(text_roughness);
+
+	return Material{ diffuse,refle,exp,att,elec,mag,roug };
 }

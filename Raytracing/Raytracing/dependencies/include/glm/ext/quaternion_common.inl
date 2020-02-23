@@ -46,7 +46,7 @@ namespace glm
 
 		T cosTheta = dot(x, y);
 
-		// If cosTheta < 0, the interpolation will take the long way around the Sphere.
+		// If cosTheta < 0, the interpolation will take the long way around the sphere.
 		// To fix this, one quat must be negated.
 		if(cosTheta < static_cast<T>(0))
 		{

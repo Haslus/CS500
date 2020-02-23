@@ -16,9 +16,16 @@ struct Material
 	vec3 diffuse_color;
 	float specular_reflection;
 	float specular_exponent;
+	vec3 attenuation;
+	float electric_perimittivity;
+	float magnetic_permeability;
+	float roughness;
+
 
 	Material() = default;
-	Material(const vec3& diffuse, const float & spec_ref, const float & spec_exp);
+	Material(const vec3& diffuse, const float & spec_ref, const float & spec_exp,
+		const vec3& attenuation = vec3(),const float & electric_perimittivity = 0,
+		const float& magnetic_permeability = 0, const float& roughness = 0);
 
 };
 
@@ -63,6 +70,17 @@ struct Plane
 	Plane(const vec3& point, const vec3& normal);
 };
 
+struct Triangle
+{
+	vec3 vertex_0;
+	vec3 vertex_1;
+	vec3 vertex_2;
+	Plane plane;
+
+	Triangle() = default;
+	Triangle(const vec3& vertex0, const vec3& vertex1, const vec3& vertex2);
+};
+
 struct Box : public Base
 {
 	vec3 position;
@@ -74,10 +92,31 @@ struct Box : public Base
 
 	Box() = default;
 	Box(const vec3 & position, const vec3 & width, const vec3 & heigth,
-		const vec3 & length, const vec3& diffuse, const float & spec_ref,
-		const float & spec_exp);
+		const vec3 & length, const Material& mat);
 	float intersection(const Ray & ray);
 	vec3 normal_at_intersection(const Ray & ray, float t);
+};
+
+struct SimplePolygon : public Base
+{
+	int number_of_vertices;
+	std::vector<vec3> vertices;
+	std::vector<Triangle> triangles;
+
+	SimplePolygon() = default;
+	SimplePolygon(const std::vector <vec3>& vertices, const Material& mat);
+	float intersection(const Ray & ray);
+};
+
+struct Ellipsoid : public Base
+{
+	vec3 center;
+	vec3 u_vector,v_vector,w_vector;
+
+	Ellipsoid() = default;
+	Ellipsoid(const vec3& center, const vec3& u, const vec3& v, const vec3& w,
+		const Material& mat);
+	float intersection(const Ray & ray);
 };
 
 struct Light
