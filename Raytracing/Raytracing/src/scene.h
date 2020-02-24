@@ -33,7 +33,13 @@ public:
 	void InitializeWindow();
 	void UpdateWindow();
 
+	void RenderQuad();
+	void UpdateTexture();
+
 	GLFWwindow* window;
+
+	unsigned int texture = 0;
+	unsigned int quadVAO = 0;
 	//
 
 	std::vector<Base*> objects;
@@ -56,4 +62,6 @@ public:
 	float epsilon;
 	bool useHS;
 	bool useSS;
+
+	
 };

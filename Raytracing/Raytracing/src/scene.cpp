@@ -423,7 +423,7 @@ void Scene::InitializeWindow()
 	{
 		/* Render here */
 		glClear(GL_COLOR_BUFFER_BIT);
-		
+
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
 
@@ -435,6 +435,61 @@ void Scene::InitializeWindow()
 void Scene::UpdateWindow()
 {
 	
+}
+
+void Scene::RenderQuad()
+{
+	if (quadVAO == 0)
+	{
+		unsigned int quadVBO;
+		float quadVertices[] = {
+			// positions        // texture Coords
+			-1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+			-1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+			 1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+			 1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+		};
+		// setup plane VAO
+		glGenVertexArrays(1, &quadVAO);
+		glGenBuffers(1, &quadVBO);
+		glBindVertexArray(quadVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	}
+	glBindVertexArray(quadVAO);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	glBindVertexArray(0);
+}
+
+void Scene::UpdateTexture()
+{
+	if (texture == -1)
+	{
+		glGenTextures(1, &texture);
+		glBindTexture(GL_TEXTURE_2D, texture);
+
+		std::vector<glm::vec3> colorData;
+		for (int i = 0; i < width * height; i++)
+		{
+			glm::vec3 color;
+			color.r = 0.5;
+			color.g = 0.0;
+			color.b = 0.0;
+			colorData.push_back(color);
+		}
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, colorData.data());
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	}
+	else
+	{
+		glTexSubImage2D(texture, 0, 0, 0, width, height, GL_RGB, GL_FLOAT, intersection_data.data());
+	}
 }
 /***********************************************
 
