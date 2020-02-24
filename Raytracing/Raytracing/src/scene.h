@@ -13,6 +13,7 @@ Creation date: 1/8/2020
 
 #include "pch.h"
 #include "shapes.h"
+#include "shader.h"
 
 Sphere parse_sphere(const std::string * lines);
 Box parse_box(const std::string * lines);
@@ -25,8 +26,9 @@ public:
 	Scene() = default;
 	Scene(const std::string & filepath, int width, int height, std::string output_name = "Out.png");
 	void Setup();
-	void Intersect(const Ray & ray);
+	void Intersect(const Ray & ray, const int& w, const int& h);
 	void GenerateRays();
+	void GenerateRaysRange(int begin, int end);
 	void GenerateImage();
 
 	//Window Stuff
@@ -38,8 +40,10 @@ public:
 
 	GLFWwindow* window;
 
-	unsigned int texture = 0;
-	unsigned int quadVAO = 0;
+	unsigned int texture = -1;
+	unsigned int quadVAO = -1;
+
+	Shader renderShader;
 	//
 
 	std::vector<Base*> objects;
@@ -51,6 +55,7 @@ public:
 
 	int width;
 	int height;
+	int threads = 5;
 
 	Camera camera;
 

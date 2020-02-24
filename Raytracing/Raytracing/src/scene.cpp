@@ -13,6 +13,7 @@ Creation date: 1/8/2020
 #include "collision.h"
 #include <iostream>
 #include <fstream>
+#include <thread>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
@@ -237,15 +238,16 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 ************************************************/
 void Scene::Setup()
 {
-	GenerateRays();
-	GenerateImage();
+	intersection_data = std::vector<vec3>(width * height, vec3{ 1,0,0 });
+	//GenerateRays();
+	//GenerateImage();
 }
 /***********************************************
 
 	Throw a Ray
 
 ************************************************/
-void Scene::Intersect(const Ray & ray)
+void Scene::Intersect(const Ray & ray, const int& w, const int& h)
 {
 
 	float d_max = FLT_MAX - 1.f;
@@ -274,7 +276,7 @@ void Scene::Intersect(const Ray & ray)
 		vec3 color = global_ambient * material.diffuse_color;
 		
 		//DEBUG
-		intersection_data.push_back(material.diffuse_color);
+		intersection_data[h * width + w] = material.diffuse_color;
 		return;
 
 		vec3 P = (ray.start + ray.dir * t);
@@ -348,7 +350,7 @@ void Scene::Intersect(const Ray & ray)
 		color += material.diffuse_color * ID + material.specular_reflection * IS;
 		//Clamp color
 		color = glm::clamp(color, vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
-		intersection_data.push_back(color);
+		intersection_data[h * width + w] = color;
 	}
 
 	
@@ -374,7 +376,27 @@ void Scene::GenerateRays()
 			vec3 P = camera.center + static_cast<float>((j - halfWidth + 0.5f) / halfWidth) * camera.right - static_cast<float>((i - halfHeigth + 0.5f) / halfHeigth) * camera.up;
 			Ray ray{ start,glm::normalize(P - start) };
 			rays.push_back(ray);
-			Intersect(ray);
+			Intersect(ray,i,j);
+
+		}
+}
+
+void Scene::GenerateRaysRange(int begin, int end)
+{
+	vec3 forward = glm::normalize(glm::cross(camera.up, camera.right));
+	vec3 start = camera.center - forward * camera.eye;
+
+	float halfWidth = static_cast<float>(width / 2);
+	float halfHeigth = static_cast<float>(height / 2);
+
+	//Generate rays
+	for (int i = begin; i < end; i++)
+		for (int j = 0; j < width; j++)
+		{
+			vec3 P = camera.center + static_cast<float>((j - halfWidth + 0.5f) / halfWidth) * camera.right - static_cast<float>((i - halfHeigth + 0.5f) / halfHeigth) * camera.up;
+			Ray ray{ start,glm::normalize(P - start) };
+			//rays.push_back(ray);
+			Intersect(ray,i,j);
 
 		}
 }
@@ -417,13 +439,33 @@ void Scene::InitializeWindow()
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 	glfwSwapInterval(1);
 
+	renderShader = Shader{ "shaders/normal.vert","shaders/normal.frag" };
+
+	//Generate Rays if needed
+
+	int division = width / threads;
+
+	for (int i = 0; i < threads; i++)
+	{
+		std::thread ray1(&Scene::GenerateRaysRange,this, division * i, division * (i + 1));
+		ray1.detach();
+	}
+	//std::thread ray2(&Scene::GenerateRaysRange,this, 250, 500);
 
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
 	{
 		/* Render here */
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClearColor(0.20f, 0.20f, 0.20f, 1.0f);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		//glClear(GL_COLOR_BUFFER_BIT);
 
+		//Store new data in the texture
+		UpdateTexture();
+		//Render it
+		renderShader.Use();
+		RenderQuad();
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
 
@@ -439,7 +481,7 @@ void Scene::UpdateWindow()
 
 void Scene::RenderQuad()
 {
-	if (quadVAO == 0)
+	if (quadVAO == -1)
 	{
 		unsigned int quadVBO;
 		float quadVertices[] = {
@@ -460,6 +502,8 @@ void Scene::RenderQuad()
 		glEnableVertexAttribArray(1);
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 	}
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D,texture);
 	glBindVertexArray(quadVAO);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	glBindVertexArray(0);
@@ -488,7 +532,8 @@ void Scene::UpdateTexture()
 	}
 	else
 	{
-		glTexSubImage2D(texture, 0, 0, 0, width, height, GL_RGB, GL_FLOAT, intersection_data.data());
+		glBindTexture(GL_TEXTURE_2D, texture);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, GL_FLOAT, intersection_data.data());
 	}
 }
 /***********************************************
