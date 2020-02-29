@@ -55,7 +55,7 @@ public:
 
 	int width;
 	int height;
-	int threads = 1;
+	int threads = 5;
 
 	Camera camera;
 

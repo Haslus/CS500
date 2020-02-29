@@ -144,7 +144,19 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 				global_ambient = extract_vec3(text_ambient);
 			}
 
-			//if (line.find("AIR") != std::string::npos)
+			if (line.find("AIR") != std::string::npos)
+			{
+				line = line.substr(line.find(' ') + 1);
+				std::string text_elec = line.substr(0,line.find(' '));
+				line = line.substr(line.find(' ') + 1);
+				std::string text_mag = line.substr(0, line.find(' '));
+				line = line.substr(line.find(' ') + 1);
+				std::string text_att = line.substr(line.find('(') + 1, line.find(')') - 1);
+
+				air_electric_permittivity = std::stof(text_elec);
+				air_magnetic_permeability = std::stof(text_mag);
+				air_attenuation = extract_vec3(text_att);
+			}
 
 			if (line.find("CAMERA") != std::string::npos)
 			{
@@ -355,7 +367,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 	color += material.diffuse_color * ID + material.specular_reflection * IS;
 	//Clamp color
 	color = glm::clamp(color, vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
-	//intersection_data[h * width + w] = color;
+	
 	float R = material.specular_reflection;
 
 
@@ -363,10 +375,14 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 		return color;
 
 	vec3 reflected_dir = ray.dir - 2.0f * glm::dot(ray.dir, normal) * normal;
-	reflected_dir += sample_sphere() * material.roughness;
+	if (material.roughness > 0.0f)
+	{
+		//for(int i = 0; i < 50; i++)
+			reflected_dir += sample_sphere(material.roughness);
+	}
 
 	Ray reflected_ray{ P + reflected_dir * 0.001f  ,reflected_dir};
-	return color + Intersect(reflected_ray, d - 1);
+	return glm::clamp(color + R * Intersect(reflected_ray, d - 1), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
 
 	
 }
@@ -410,7 +426,6 @@ void Scene::GenerateRaysRange(int begin, int end)
 		{
 			vec3 P = camera.center + static_cast<float>((j - halfWidth + 0.5f) / halfWidth) * camera.right - static_cast<float>((i - halfHeigth + 0.5f) / halfHeigth) * camera.up;
 			Ray ray{ start,glm::normalize(P - start) };
-			rays.push_back(ray);
 			intersection_data[i * width + j] = Intersect(ray, max_depth);
 
 		}
@@ -426,6 +441,8 @@ void Scene::GenerateImage()
 	std::vector<unsigned char> converted_data;
 	for (auto data : intersection_data)
 	{
+		if (data.x > 1 || data.y > 1 || data.z > 1)
+			continue;
 		converted_data.push_back(static_cast<unsigned char>(data.x * 255.99f));
 		converted_data.push_back(static_cast<unsigned char>(data.y * 255.99f));
 		converted_data.push_back(static_cast<unsigned char>(data.z * 255.99f));
@@ -489,7 +506,7 @@ void Scene::InitializeWindow()
 		glfwPollEvents();
 	}
 
-	
+	GenerateImage();
 
 }
 void Scene::UpdateWindow()
