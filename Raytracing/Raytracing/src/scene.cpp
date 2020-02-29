@@ -144,6 +144,8 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 				global_ambient = extract_vec3(text_ambient);
 			}
 
+			//if (line.find("AIR") != std::string::npos)
+
 			if (line.find("CAMERA") != std::string::npos)
 			{
 				std::string text_center = line.substr(line.find('(') + 1, line.find(')') - line.find('(') - 1);
@@ -247,8 +249,11 @@ void Scene::Setup()
 	Throw a Ray
 
 ************************************************/
-void Scene::Intersect(const Ray & ray, const int& w, const int& h)
+vec3 Scene::Intersect(const Ray & ray, const int& d )
 {
+	//MAX DEPTH REACHED
+	if (d < 0)
+		return vec3{ 0, 0, 0 };
 
 	float d_max = FLT_MAX - 1.f;
 	int index = -1;
@@ -258,7 +263,7 @@ void Scene::Intersect(const Ray & ray, const int& w, const int& h)
 	{
 		float d = objects[i]->intersection(ray);
 
-		if (d >= 0.f && d <= d_max)
+		if (d >= 0.f && d < d_max)
 		{
 			d_max = d;
 			index = i;
@@ -266,92 +271,102 @@ void Scene::Intersect(const Ray & ray, const int& w, const int& h)
 		}
 
 	}
-
+	//NO INTERSECTION
 	if (index == -1 || t == -1)
-		intersection_data.push_back(vec3{ 0,0,0 });
-	else
-	{
-		Material material = objects[index]->mat;
-		vec3 normal = objects[index]->normal_at_intersection(ray, t);
-		vec3 color = global_ambient * material.diffuse_color;
+		return vec3{ 0,0,0 };
+
+	Material material = objects[index]->mat;
+	vec3 normal = objects[index]->normal_at_intersection(ray, t);
+	vec3 color = global_ambient * material.diffuse_color;
 		
-		//DEBUG
-		intersection_data[h * width + w] = material.diffuse_color;
-		return;
+	//DEBUG
+	//return material.diffuse_color;
+	
+	vec3 P = (ray.start + ray.dir * t);
+	vec3 viewVec = glm::normalize(ray.start - P);
 
-		vec3 P = (ray.start + ray.dir * t);
-		vec3 viewVec = glm::normalize(ray.start - P);
 
-		vec3 ID{0,0,0};
-		vec3 IS{ 0,0,0 };
+	vec3 ID{ 0, 0, 0};
+	vec3 IS{ 0, 0, 0};
 
-		for (Light & light : lights)
+	//APPLY LOCAL ILLUMINATION
+	for (Light & light : lights)
+	{
+		//Calculate Diffuse + Specular
+		vec3 lightDir = glm::normalize(light.position - P);
+
+		float shadow_factor = 1;
+		if (useHS)
 		{
-			//Calculate Diffuse + Specular
-			vec3 lightDir = glm::normalize(light.position - P);
-
-			float shadow_factor = 1;
-			if (useHS)
+			//Calculate Hard Shadow
+			Ray ray{ P + normal * epsilon, lightDir };
+			bool HS_intersection = false;
+			for (int i = 0; i < objects.size(); i++)
 			{
-				//Calculate Hard Shadow
-				Ray ray{ P + normal * epsilon, lightDir };
-				bool HS_intersection = false;
+				float d = objects[i]->intersection(ray);
+
+				if (d != -1.0f)
+				{
+					HS_intersection = true;
+					break;
+				}
+
+			}
+
+			if(HS_intersection)
+				shadow_factor = 0;
+		}
+			
+		else if (useSS)
+		{
+			//Calculate Soft Shadows
+			shadow_factor = 0;
+			for (int s = 0; s < samples; s++)
+			{
+				Ray ray{ P + normal * epsilon, glm::normalize(light.bulb.get_random_point() - P) };
+
 				for (int i = 0; i < objects.size(); i++)
 				{
 					float d = objects[i]->intersection(ray);
 
 					if (d != -1.0f)
 					{
-						HS_intersection = true;
+						shadow_factor++;
 						break;
 					}
 
 				}
-
-				if(HS_intersection)
-					shadow_factor = 0;
-			}
-			
-			else if (useSS)
-			{
-				//Calculate Soft Shadows
-				shadow_factor = 0;
-				for (int s = 0; s < samples; s++)
-				{
-					Ray ray{ P + normal * epsilon, glm::normalize(light.bulb.get_random_point() - P) };
-
-					for (int i = 0; i < objects.size(); i++)
-					{
-						float d = objects[i]->intersection(ray);
-
-						if (d != -1.0f)
-						{
-							shadow_factor++;
-							break;
-						}
-
-					}
-				}
-
-				shadow_factor = 1.0f - static_cast<float>(shadow_factor / samples);
 			}
 
-			
-
-			//Calculate Diffuse factor
-			ID += glm::max(glm::dot(normal, lightDir), 0.0f) * light.color * shadow_factor;
-
-			//Calculate Specular factor
-			vec3 reflection = glm::reflect(-lightDir, normal);
-			IS += glm::pow(glm::max(glm::dot(reflection, viewVec), 0.0f), material.specular_exponent) * light.color * shadow_factor;
-
+			shadow_factor = 1.0f - static_cast<float>(shadow_factor / samples);
 		}
 
-		color += material.diffuse_color * ID + material.specular_reflection * IS;
-		//Clamp color
-		color = glm::clamp(color, vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
-		intersection_data[h * width + w] = color;
+			
+
+		//Calculate Diffuse factor
+		ID += glm::max(glm::dot(normal, lightDir), 0.0f) * light.color * shadow_factor;
+
+		//Calculate Specular factor
+		vec3 reflection = glm::reflect(-lightDir, normal);
+		IS += glm::pow(glm::max(glm::dot(reflection, viewVec), 0.0f), material.specular_exponent) * light.color * shadow_factor;
+
 	}
+
+	color += material.diffuse_color * ID + material.specular_reflection * IS;
+	//Clamp color
+	color = glm::clamp(color, vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+	//intersection_data[h * width + w] = color;
+	float R = material.specular_reflection;
+
+
+	if (R == 0.0f)
+		return color;
+
+	vec3 reflected_dir = ray.dir - 2.0f * glm::dot(ray.dir, normal) * normal;
+	reflected_dir += sample_sphere() * material.roughness;
+
+	Ray reflected_ray{ P + reflected_dir * 0.001f  ,reflected_dir};
+	return color + Intersect(reflected_ray, d - 1);
 
 	
 }
@@ -376,7 +391,7 @@ void Scene::GenerateRays()
 			vec3 P = camera.center + static_cast<float>((j - halfWidth + 0.5f) / halfWidth) * camera.right - static_cast<float>((i - halfHeigth + 0.5f) / halfHeigth) * camera.up;
 			Ray ray{ start,glm::normalize(P - start) };
 			rays.push_back(ray);
-			Intersect(ray,i,j);
+			intersection_data[i * width + j] = Intersect(ray,max_depth);
 
 		}
 }
@@ -395,8 +410,8 @@ void Scene::GenerateRaysRange(int begin, int end)
 		{
 			vec3 P = camera.center + static_cast<float>((j - halfWidth + 0.5f) / halfWidth) * camera.right - static_cast<float>((i - halfHeigth + 0.5f) / halfHeigth) * camera.up;
 			Ray ray{ start,glm::normalize(P - start) };
-			//rays.push_back(ray);
-			Intersect(ray,i,j);
+			rays.push_back(ray);
+			intersection_data[i * width + j] = Intersect(ray, max_depth);
 
 		}
 }
@@ -443,6 +458,7 @@ void Scene::InitializeWindow()
 
 	//Generate Rays if needed
 
+
 	int division = width / threads;
 
 	for (int i = 0; i < threads; i++)
@@ -472,6 +488,8 @@ void Scene::InitializeWindow()
 		/* Poll for and process events */
 		glfwPollEvents();
 	}
+
+	
 
 }
 void Scene::UpdateWindow()

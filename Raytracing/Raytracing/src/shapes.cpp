@@ -194,6 +194,19 @@ float SimplePolygon::intersection(const Ray & ray)
 	return intersection_ray_polygon(ray, *this);
 }
 
+vec3 SimplePolygon::normal_at_intersection(const Ray & ray, float t)
+{
+	vec3 P = ray.start + ray.dir * t;
+
+	for (auto tri : triangles)
+	{
+		if (intersection_point_triangle(P, tri))
+			return tri.plane.normal;
+	}
+
+	return vec3(0, 0, 0);
+}
+
 Ellipsoid::Ellipsoid(const vec3 & center, const vec3 & u, const vec3 & v, const vec3 & w, const Material & mat)
 {
 	this->center = center;
@@ -208,6 +221,17 @@ float Ellipsoid::intersection(const Ray & ray)
 	return intersection_ray_ellipsoid(ray, *this);
 }
 
+vec3 Ellipsoid::normal_at_intersection(const Ray & ray, float t)
+{
+	vec3 P = ray.start + ray.dir * t;
+	glm::mat3x3 M{ u_vector, v_vector, w_vector };
+	glm::mat3x3 inverseM = glm::inverse(M);
+
+	vec3 normal = glm::normalize(glm::transpose(inverseM) * inverseM * (P - center));
+
+	return normal;
+}
+
 Triangle::Triangle(const vec3 & vertex0, const vec3 & vertex1, const vec3 & vertex2)
 {
 	vertex_0 = vertex0;
@@ -220,4 +244,18 @@ Triangle::Triangle(const vec3 & vertex0, const vec3 & vertex1, const vec3 & vert
 	vec3 normal = glm::normalize(glm::cross(a, b));
 
 	plane = Plane{ vertex_0, normal };
+}
+
+vec3 sample_sphere(const float & r)
+{
+	vec3 randP;
+	randP.x = (((double)rand() / (RAND_MAX)) - 0.5f);
+	randP.y = (((double)rand() / (RAND_MAX)) - 0.5f);
+	randP.z = (((double)rand() / (RAND_MAX)) - 0.5f);
+
+	randP = glm::normalize(randP);
+	float u = ((double)rand() / (RAND_MAX));
+	float c = std::cbrt(u);
+
+	return randP * u;
 }

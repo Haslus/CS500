@@ -11,6 +11,8 @@ Creation date: 1/8/2020
 
 #include "pch.h"
 
+vec3 sample_sphere(const float & r = 0.1f);
+
 struct Material
 {
 	vec3 diffuse_color;
@@ -106,6 +108,7 @@ struct SimplePolygon : public Base
 	SimplePolygon() = default;
 	SimplePolygon(const std::vector <vec3>& vertices, const Material& mat);
 	float intersection(const Ray & ray);
+	vec3 normal_at_intersection(const Ray & ray, float t);
 };
 
 struct Ellipsoid : public Base
@@ -117,6 +120,7 @@ struct Ellipsoid : public Base
 	Ellipsoid(const vec3& center, const vec3& u, const vec3& v, const vec3& w,
 		const Material& mat);
 	float intersection(const Ray & ray);
+	vec3 normal_at_intersection(const Ray & ray, float t);
 };
 
 struct Light

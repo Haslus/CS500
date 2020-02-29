@@ -108,7 +108,7 @@ float intersection_ray_triangle(const Ray & ray, const Triangle & tri)
 	float dbot = glm::dot(ray.dir, tri.plane.normal);
 	float t = -dtop / dbot;
 
-	if (t >= 0)
+	if (t > 0.0f)
 	{
 		vec3 intersection_point = ray.start + t * ray.dir;
 		if (intersection_point_triangle(intersection_point, tri))
@@ -154,6 +154,10 @@ bool intersection_point_triangle(const vec3 & point, const Triangle & tri)
 
 float intersection_ray_ellipsoid(const Ray & ray, const Ellipsoid & ellip)
 {
+
+	if (ray.dir == vec3(0, 0, 0))
+		return -1.0f;
+
 	glm::mat3x3 M{ ellip.u_vector,ellip.v_vector,ellip.w_vector };
 	glm::mat3x3 inverseM = glm::inverse(M);
 

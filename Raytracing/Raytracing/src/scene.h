@@ -26,7 +26,7 @@ public:
 	Scene() = default;
 	Scene(const std::string & filepath, int width, int height, std::string output_name = "Out.png");
 	void Setup();
-	void Intersect(const Ray & ray, const int& w, const int& h);
+	vec3 Intersect(const Ray & ray, const int&d = 1);
 	void GenerateRays();
 	void GenerateRaysRange(int begin, int end);
 	void GenerateImage();
@@ -55,7 +55,7 @@ public:
 
 	int width;
 	int height;
-	int threads = 5;
+	int threads = 1;
 
 	Camera camera;
 
@@ -67,6 +67,13 @@ public:
 	float epsilon;
 	bool useHS;
 	bool useSS;
+
+	int max_depth = 5;
+
+	//Air
+	float air_electric_permittivity;
+	float air_magnetic_permeability;
+	vec3 air_attenuation;
 
 	
 };
