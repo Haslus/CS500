@@ -335,7 +335,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 			shadow_factor = 0;
 			for (int s = 0; s < samples; s++)
 			{
-				Ray ray{ P + normal * epsilon, glm::normalize(light.bulb.get_random_point() - P) };
+				Ray ray{ P + normal * epsilon, glm::normalize(light.position + sample_sphere() - P) };
 
 				for (int i = 0; i < objects.size(); i++)
 				{
@@ -375,14 +375,26 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 		return color;
 
 	vec3 reflected_dir = ray.dir - 2.0f * glm::dot(ray.dir, normal) * normal;
+
+	//Roughnesss
 	if (material.roughness > 0.0f)
 	{
-		//for(int i = 0; i < 50; i++)
-			reflected_dir += sample_sphere(material.roughness);
-	}
+		vec3 reflec_color = vec3(0, 0, 0);
+		for (int i = 0; i < reflection_samples; i++)
+		{
+			Ray reflected_ray{ P + reflected_dir * 0.001f  ,reflected_dir + sample_sphere(material.roughness) };
+			reflec_color += material.roughness * Intersect(reflected_ray, d - 1);
+		}
 
-	Ray reflected_ray{ P + reflected_dir * 0.001f  ,reflected_dir};
-	return glm::clamp(color + R * Intersect(reflected_ray, d - 1), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+		reflec_color /= reflection_samples;
+		return glm::clamp(color + reflec_color, vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+	}
+	else
+	{
+
+		Ray reflected_ray{ P + reflected_dir * 0.001f  ,reflected_dir};
+		return glm::clamp(color + R * Intersect(reflected_ray, d - 1), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+	}
 
 	
 }

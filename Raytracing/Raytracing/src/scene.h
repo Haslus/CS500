@@ -68,7 +68,8 @@ public:
 	bool useHS;
 	bool useSS;
 
-	int max_depth = 5;
+	int max_depth = 4;
+	int reflection_samples = 50;
 
 	//Air
 	float air_electric_permittivity;

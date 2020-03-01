@@ -257,5 +257,5 @@ vec3 sample_sphere(const float & r)
 	float u = ((double)rand() / (RAND_MAX));
 	float c = std::cbrt(u);
 
-	return randP * r;
+	return randP * u;
 }
