@@ -14,6 +14,7 @@ Creation date: 1/8/2020
 #include <iostream>
 #include <fstream>
 #include <thread>
+#include <glm\gtc\random.hpp>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
@@ -294,13 +295,13 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 	//DEBUG
 	//return material.diffuse_color;
 	
-	vec3 P = (ray.start + ray.dir * t);
+	vec3 P = (ray.start + ray.dir * t) + epsilon * normal;
 	vec3 viewVec = glm::normalize(ray.start - P);
 
 
 	vec3 ID{ 0, 0, 0};
 	vec3 IS{ 0, 0, 0};
-
+	
 	//APPLY LOCAL ILLUMINATION
 	for (Light & light : lights)
 	{
@@ -311,16 +312,24 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 		if (useHS)
 		{
 			//Calculate Hard Shadow
-			Ray ray{ P + normal * epsilon, lightDir };
+			Ray ray{ P, lightDir };
 			bool HS_intersection = false;
+			float distance = glm::length(light.position - P);
+
 			for (int i = 0; i < objects.size(); i++)
 			{
 				float d = objects[i]->intersection(ray);
 
-				if (d != -1.0f)
+				if (d != -1.0f && d < distance)
 				{
-					HS_intersection = true;
-					break;
+					vec3 point = ray.start + ray.dir * d;
+
+					if (glm::length(point - P) < distance)
+					{
+						HS_intersection = true;
+						break;
+
+					}
 				}
 
 			}
@@ -335,22 +344,30 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 			shadow_factor = 0;
 			for (int s = 0; s < samples; s++)
 			{
-				Ray ray{ P + normal * epsilon, glm::normalize(light.position + sample_sphere() - P) };
+				vec3 randDir = light.position + sample_sphere(light.radius) - P;
+				Ray ray{ P, glm::normalize(randDir) };
+				float distance = glm::length(randDir);
 
 				for (int i = 0; i < objects.size(); i++)
 				{
 					float d = objects[i]->intersection(ray);
 
-					if (d != -1.0f)
+					if (d != -1.0f && d < distance)
 					{
-						shadow_factor++;
-						break;
+						vec3 point = ray.start + ray.dir * d;
+
+						if (glm::length(point - P) < distance)
+						{
+							shadow_factor++;
+							break;
+						}
 					}
 
 				}
 			}
 
 			shadow_factor = 1.0f - static_cast<float>(shadow_factor / samples);
+
 		}
 
 			
@@ -370,30 +387,38 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 	
 	float R = material.specular_reflection;
 
+	if (color.x == 0 && color.y == 0 && color.z == 0)
+		R = material.specular_reflection;
 
 	if (R == 0.0f)
 		return color;
 
 	vec3 reflected_dir = ray.dir - 2.0f * glm::dot(ray.dir, normal) * normal;
 
+	vec3 att;
+		
+	att.x = glm::pow(air_attenuation.x, glm::length(ray.start - P));
+	att.y = glm::pow(air_attenuation.y, glm::length(ray.start - P));
+	att.z = glm::pow(air_attenuation.z, glm::length(ray.start - P));
 	//Roughnesss
 	if (material.roughness > 0.0f)
 	{
 		vec3 reflec_color = vec3(0, 0, 0);
+
 		for (int i = 0; i < reflection_samples; i++)
 		{
-			Ray reflected_ray{ P + reflected_dir * 0.001f  ,reflected_dir + sample_sphere(material.roughness) };
+			Ray reflected_ray{ P, reflected_dir + sample_sphere(material.roughness)};
 			reflec_color += material.roughness * Intersect(reflected_ray, d - 1);
 		}
 
 		reflec_color /= reflection_samples;
-		return glm::clamp(color + reflec_color, vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+		return glm::clamp(att * (color + R * reflec_color), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
 	}
 	else
 	{
 
-		Ray reflected_ray{ P + reflected_dir * 0.001f  ,reflected_dir};
-		return glm::clamp(color + R * Intersect(reflected_ray, d - 1), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+		Ray reflected_ray{ P ,reflected_dir};
+		return glm::clamp(att * (color + R * Intersect(reflected_ray, d - 1)), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
 	}
 
 	

@@ -63,6 +63,9 @@ vec3 Sphere::normal_at_intersection(const Ray & ray, float t)
 vec3 Sphere::get_random_point()
 {
 	vec3 random_vec = glm::ballRand(radius);
+	random_vec.x = ((double)rand() / (RAND_MAX)) - 0.5f;
+	random_vec.x = ((double)rand() / (RAND_MAX)) - 0.5f;
+	random_vec.x = ((double)rand() / (RAND_MAX)) - 0.5f;
 
 	return center + random_vec;
 	
@@ -249,13 +252,13 @@ Triangle::Triangle(const vec3 & vertex0, const vec3 & vertex1, const vec3 & vert
 vec3 sample_sphere(const float & r)
 {
 	vec3 randP;
-	randP.x = (((double)rand() / (RAND_MAX)) - 0.5f);
-	randP.y = (((double)rand() / (RAND_MAX)) - 0.5f);
-	randP.z = (((double)rand() / (RAND_MAX)) - 0.5f);
+	randP.x = ((double)rand() / (RAND_MAX) - 0.5f);
+	randP.y = ((double)rand() / (RAND_MAX) - 0.5f);
+	randP.z = ((double)rand() / (RAND_MAX) - 0.5f);
 
 	randP = glm::normalize(randP);
-	float u = ((double)rand() / (RAND_MAX));
+	float u = (double)rand() / (RAND_MAX);
 	float c = std::cbrt(u);
 
-	return randP * u;
+	return randP * c * r;
 }
