@@ -89,9 +89,14 @@ float intersection_ray_box(const Ray & ray, const Box & box)
 	else
 		return tmin;
 }
+/***********************************************
 
+	Intersection between ray and polygon
+
+************************************************/
 float intersection_ray_polygon(const Ray & ray, const SimplePolygon & poly)
 {
+	//Check each triangle
 	for (auto tri : poly.triangles)
 	{
 		float t = intersection_ray_triangle(ray, tri);
@@ -101,7 +106,11 @@ float intersection_ray_polygon(const Ray & ray, const SimplePolygon & poly)
 	}
 	return-1.0f;
 }
+/***********************************************
 
+	Intersection between ray and triangle
+
+************************************************/
 float intersection_ray_triangle(const Ray & ray, const Triangle & tri)
 {
 	float dtop = glm::dot((ray.start - tri.plane.point), tri.plane.normal);
@@ -121,7 +130,11 @@ float intersection_ray_triangle(const Ray & ray, const Triangle & tri)
 		return -1.0f;
 	}
 }
+/***********************************************
 
+	Intersection between point and triangle
+
+************************************************/
 bool intersection_point_triangle(const vec3 & point, const Triangle & tri)
 {
 	vec3 v0 = tri.vertex_1 - tri.vertex_0;
@@ -151,7 +164,11 @@ bool intersection_point_triangle(const vec3 & point, const Triangle & tri)
 	return true;
 
 }
+/***********************************************
 
+	Intersection between ray and ellipsoid
+
+************************************************/
 float intersection_ray_ellipsoid(const Ray & ray, const Ellipsoid & ellip)
 {
 

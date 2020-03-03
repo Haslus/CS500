@@ -56,11 +56,9 @@ struct Sphere : public Base
 	float	radius;
 
 	Sphere() = default;
-	Sphere(const vec3& center, const float & radius, const vec3& diffuse = vec3(), 
-		const float & spec_ref = 0, const float & spec_exp = 0);
+	Sphere(const vec3& center, const float & radius, const Material& mat);
 	float intersection(const Ray & ray);
 	vec3 normal_at_intersection(const Ray & ray, float t);
-	vec3 get_random_point();
 };
 
 struct Plane 

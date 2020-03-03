@@ -234,10 +234,40 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 				this->epsilon = std::stof(epsilon);
 			}
 
-			if (line.find("SAMPLES") != std::string::npos)
+			if (line.find("SHADOW_SAMPLES") != std::string::npos)
 			{
-				std::string samples = line.substr(line.find('=') + 1);
-				this->samples = std::stoi(samples);
+				std::string shadowsamples = line.substr(line.find('=') + 1);
+				this->shadowsamples = std::stoi(shadowsamples);
+			}
+
+			if (line.find("MAX_DEPTH") != std::string::npos)
+			{
+				std::string maxdepth = line.substr(line.find('=') + 1);
+				this->max_depth = std::stoi(maxdepth);
+			}
+
+			if (line.find("REFLECTION_SAMPLES") != std::string::npos)
+			{
+				std::string reflection_samples = line.substr(line.find('=') + 1);
+				this->reflection_samples = std::stoi(reflection_samples);
+			}
+
+			if (line.find("THREADS") != std::string::npos)
+			{
+				std::string THREADS = line.substr(line.find('=') + 1);
+				this->threads = std::stoi(THREADS);
+			}
+
+			if (line.find("ATTENUATION") != std::string::npos)
+			{
+				if (line.find("true") != std::string::npos)
+				{
+					use_attenuation = true;
+				}
+				else
+				{
+					use_attenuation = false;
+				}
 			}
 		}
 
@@ -254,8 +284,6 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 void Scene::Setup()
 {
 	intersection_data = std::vector<vec3>(width * height, vec3{ 1,0,0 });
-	//GenerateRays();
-	//GenerateImage();
 }
 /***********************************************
 
@@ -276,7 +304,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 	{
 		float d = objects[i]->intersection(ray);
 
-		if (d >= 0.f && d < d_max)
+		if (d >= 0.f && d <= d_max)
 		{
 			d_max = d;
 			index = i;
@@ -291,9 +319,6 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 	Material material = objects[index]->mat;
 	vec3 normal = objects[index]->normal_at_intersection(ray, t);
 	vec3 color = global_ambient * material.diffuse_color;
-		
-	//DEBUG
-	//return material.diffuse_color;
 	
 	vec3 P = (ray.start + ray.dir * t) + epsilon * normal;
 	vec3 viewVec = glm::normalize(ray.start - P);
@@ -312,21 +337,20 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 		if (useHS)
 		{
 			//Calculate Hard Shadow
-			Ray ray{ P, lightDir };
-			bool HS_intersection = false;
+			Ray temp_ray{ P, lightDir };
 			float distance = glm::length(light.position - P);
 
 			for (int i = 0; i < objects.size(); i++)
 			{
-				float d = objects[i]->intersection(ray);
+				float d = objects[i]->intersection(temp_ray);
 
-				if (d != -1.0f && d < distance)
+				if (d != -1.0f && d <= distance)
 				{
-					vec3 point = ray.start + ray.dir * d;
+					vec3 point = temp_ray.start + temp_ray.dir * d;
 
-					if (glm::length(point - P) < distance)
+					if (glm::length(point - P) <= distance)
 					{
-						HS_intersection = true;
+						shadow_factor = 0;
 						break;
 
 					}
@@ -334,15 +358,13 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 
 			}
 
-			if(HS_intersection)
-				shadow_factor = 0;
-		}
-			
+		}	
+
 		else if (useSS)
 		{
 			//Calculate Soft Shadows
 			shadow_factor = 0;
-			for (int s = 0; s < samples; s++)
+			for (int s = 0; s < shadowsamples; s++)
 			{
 				vec3 randDir = light.position + sample_sphere(light.radius) - P;
 				Ray ray{ P, glm::normalize(randDir) };
@@ -352,11 +374,11 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 				{
 					float d = objects[i]->intersection(ray);
 
-					if (d != -1.0f && d < distance)
+					if (d != -1.0f && d <= distance)
 					{
 						vec3 point = ray.start + ray.dir * d;
 
-						if (glm::length(point - P) < distance)
+						if (glm::length(point - P) <= distance)
 						{
 							shadow_factor++;
 							break;
@@ -366,7 +388,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 				}
 			}
 
-			shadow_factor = 1.0f - static_cast<float>(shadow_factor / samples);
+			shadow_factor = 1.0f - static_cast<float>(shadow_factor / shadowsamples);
 
 		}
 
@@ -376,49 +398,54 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 		ID += glm::max(glm::dot(normal, lightDir), 0.0f) * light.color * shadow_factor;
 
 		//Calculate Specular factor
-		vec3 reflection = glm::reflect(-lightDir, normal);
+		vec3 reflection = glm::normalize(glm::reflect(-lightDir, normal));
 		IS += glm::pow(glm::max(glm::dot(reflection, viewVec), 0.0f), material.specular_exponent) * light.color * shadow_factor;
+
 
 	}
 
 	color += material.diffuse_color * ID + material.specular_reflection * IS;
 	//Clamp color
-	color = glm::clamp(color, vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+	//color = glm::clamp(color, vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
 	
+	//Use attenuation
+	vec3 att = { 1.0f,1.0f,1.0f };
+
+	if (use_attenuation)
+	{
+		att.x = glm::pow(air_attenuation.x, glm::length(ray.start - P));
+		att.y = glm::pow(air_attenuation.y, glm::length(ray.start - P));
+		att.z = glm::pow(air_attenuation.z, glm::length(ray.start - P));
+	}
+
 	float R = material.specular_reflection;
 
-	if (color.x == 0 && color.y == 0 && color.z == 0)
-		R = material.specular_reflection;
-
+	//If there is no reflection just return
 	if (R == 0.0f)
-		return color;
+		return att * color;
 
-	vec3 reflected_dir = ray.dir - 2.0f * glm::dot(ray.dir, normal) * normal;
+	//color *= 1.0f - material.specular_reflection;
+	vec3 reflected_dir = glm::normalize(glm::reflect(ray.dir,normal));
 
-	vec3 att;
-		
-	att.x = glm::pow(air_attenuation.x, glm::length(ray.start - P));
-	att.y = glm::pow(air_attenuation.y, glm::length(ray.start - P));
-	att.z = glm::pow(air_attenuation.z, glm::length(ray.start - P));
-	//Roughnesss
+	//Check for roughness
 	if (material.roughness > 0.0f)
 	{
 		vec3 reflec_color = vec3(0, 0, 0);
 
 		for (int i = 0; i < reflection_samples; i++)
 		{
-			Ray reflected_ray{ P, reflected_dir + sample_sphere(material.roughness)};
-			reflec_color += material.roughness * Intersect(reflected_ray, d - 1);
+			Ray reflected_ray{ P, glm::normalize(reflected_dir + sample_sphere(material.roughness))};
+			reflec_color += Intersect(reflected_ray, d - 1);
 		}
 
 		reflec_color /= reflection_samples;
-		return glm::clamp(att * (color + R * reflec_color), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+		return att * (color + R * reflec_color);
 	}
 	else
 	{
 
-		Ray reflected_ray{ P ,reflected_dir};
-		return glm::clamp(att * (color + R * Intersect(reflected_ray, d - 1)), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+		Ray reflected_ray{ P, reflected_dir};
+		return att * (color + R * Intersect(reflected_ray, d - 1));
 	}
 
 	
@@ -448,7 +475,11 @@ void Scene::GenerateRays()
 
 		}
 }
+/***********************************************
 
+	Generate Rays from BEGIN height to END heigth
+
+************************************************/
 void Scene::GenerateRaysRange(int begin, int end)
 {
 	vec3 forward = glm::normalize(glm::cross(camera.up, camera.right));
@@ -463,7 +494,7 @@ void Scene::GenerateRaysRange(int begin, int end)
 		{
 			vec3 P = camera.center + static_cast<float>((j - halfWidth + 0.5f) / halfWidth) * camera.right - static_cast<float>((i - halfHeigth + 0.5f) / halfHeigth) * camera.up;
 			Ray ray{ start,glm::normalize(P - start) };
-			intersection_data[i * width + j] = Intersect(ray, max_depth);
+			intersection_data[i * width + j] = glm::clamp(Intersect(ray, max_depth), vec3(0), vec3(1));
 
 		}
 }
@@ -487,6 +518,11 @@ void Scene::GenerateImage()
 	stbi_write_png(output_name.c_str(), width, height, 3, converted_data.data(),0);
 }
 
+/***********************************************
+
+	Create Window
+
+************************************************/
 void Scene::InitializeWindow()
 {
 	glfwSetErrorCallback(error_callback);
@@ -511,17 +547,35 @@ void Scene::InitializeWindow()
 	renderShader = Shader{ "shaders/normal.vert","shaders/normal.frag" };
 
 	//Generate Rays if needed
-
-
 	int division = width / threads;
 
 	for (int i = 0; i < threads; i++)
 	{
-		std::thread ray1(&Scene::GenerateRaysRange,this, division * i, division * (i + 1));
-		ray1.detach();
+		if (i == threads - 1)
+		{
+			std::thread ray1(&Scene::GenerateRaysRange, this, division * i, width);
+			ray1.detach();
+		}
+		else
+		{
+			std::thread ray1(&Scene::GenerateRaysRange,this, division * i, division * (i + 1));
+			ray1.detach();
+		}
 	}
-	//std::thread ray2(&Scene::GenerateRaysRange,this, 250, 500);
 
+
+
+	
+
+}
+
+/***********************************************
+
+	Update Window
+
+************************************************/
+void Scene::UpdateWindow()
+{
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
 	{
@@ -542,15 +596,15 @@ void Scene::InitializeWindow()
 		/* Poll for and process events */
 		glfwPollEvents();
 	}
-
+	//Generate Image when window is closed
+	std::cout << "Saving Image into " << output_name << ".png" << std::endl;
 	GenerateImage();
-
 }
-void Scene::UpdateWindow()
-{
-	
-}
+/***********************************************
 
+	Create and Render a Quad for preview
+
+************************************************/
 void Scene::RenderQuad()
 {
 	if (quadVAO == -1)
@@ -580,7 +634,11 @@ void Scene::RenderQuad()
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	glBindVertexArray(0);
 }
+/***********************************************
 
+	Update the preview
+
+************************************************/
 void Scene::UpdateTexture()
 {
 	if (texture == -1)
@@ -654,7 +712,10 @@ Sphere parse_sphere(const std::string * lines)
 
 	specular_reflection = std::stof(spec_ref);
 	specular_exponent = std::stof(spec_exp);
-	Sphere sphere{ center,radius,color,specular_reflection,specular_exponent };
+
+	Material mat = parse_material(&lines[1]);
+
+	Sphere sphere{ center,radius,mat };
 
 	return sphere;
 }
@@ -705,7 +766,11 @@ Light parse_light(const std::string * lines)
 
 	return Light(position,color,radius);
 }
+/***********************************************
 
+	Parse the material
+
+************************************************/
 Material parse_material(const std::string * lines)
 {
 	std::string text_material = lines[0];
@@ -722,7 +787,7 @@ Material parse_material(const std::string * lines)
 	std::string text_magn_perm = text_material.substr(0, text_material.find_first_of(' '));
 	text_material = text_material.substr(text_material.find_first_of(' ') + 1);
 	std::string text_roughness = text_material.substr(0, text_material.find_first_of(' '));
-	//text_material = text_material.substr(text_material.find_first_of(' ') + 1);
+
 	vec3 diffuse = extract_vec3(text_diffuse);
 	float refle = std::stof(text_refle);
 	float exp = std::stof(text_exp);

@@ -55,7 +55,7 @@ public:
 
 	int width;
 	int height;
-	int threads = 5;
+	int threads;
 
 	Camera camera;
 
@@ -63,17 +63,19 @@ public:
 	std::string output_name;
 	std::vector<vec3> intersection_data;
 
-	int samples;
 	float epsilon;
+	int shadowsamples;
 	bool useHS;
 	bool useSS;
 
-	int max_depth = 4;
-	int reflection_samples = 10;
+	//Reflection
+	int max_depth;
+	int reflection_samples;
 
 	//Air
 	float air_electric_permittivity;
 	float air_magnetic_permeability;
+	bool use_attenuation;
 	vec3 air_attenuation;
 
 	

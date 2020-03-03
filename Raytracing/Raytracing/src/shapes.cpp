@@ -25,12 +25,11 @@ Ray::Ray(const vec3 & start, const vec3 & dir)
 	Custom Constructor
 
 ************************************************/
-Sphere::Sphere(const vec3 & center, const float & radius, const vec3& diffuse,
-	const float & spec_ref, const float & spec_exp)
+Sphere::Sphere(const vec3 & center, const float & radius, const Material& mat)
 {
 	this->center = center;
 	this->radius = radius;
-	this->mat = Material{diffuse,spec_ref,spec_exp};
+	this->mat = mat;
 }
 /***********************************************
 
@@ -48,27 +47,12 @@ float Sphere::intersection(const Ray & ray)
 ************************************************/
 vec3 Sphere::normal_at_intersection(const Ray & ray, float t)
 {
-	vec3 intersection = ray.start + glm::normalize(ray.dir) * t;
+	vec3 intersection = ray.start + ray.dir * t;
 
 	vec3 normal = glm::normalize(intersection - this->center);
 
 	return normal;
 
-}
-/***********************************************
-
-	Get a random point from the sphere
-
-************************************************/
-vec3 Sphere::get_random_point()
-{
-	vec3 random_vec = glm::ballRand(radius);
-	random_vec.x = ((double)rand() / (RAND_MAX)) - 0.5f;
-	random_vec.x = ((double)rand() / (RAND_MAX)) - 0.5f;
-	random_vec.x = ((double)rand() / (RAND_MAX)) - 0.5f;
-
-	return center + random_vec;
-	
 }
 /***********************************************
 
@@ -176,9 +160,12 @@ Light::Light(const vec3 & position, const vec3 & color, const float & radius)
 	this->color = color;
 	this->radius = radius;
 
-	this->bulb = Sphere{position,radius};
 }
+/***********************************************
 
+	Custom Constructor
+
+************************************************/
 SimplePolygon::SimplePolygon(const std::vector<vec3>& vertices, const Material & mat)
 {
 	this->vertices = vertices;
@@ -191,12 +178,20 @@ SimplePolygon::SimplePolygon(const std::vector<vec3>& vertices, const Material &
 		triangles.push_back(Triangle{ this->vertices[0],this->vertices[i + 1], this->vertices[i + 2] });
 	}
 }
+/***********************************************
 
+	Intersect
+
+************************************************/
 float SimplePolygon::intersection(const Ray & ray)
 {
 	return intersection_ray_polygon(ray, *this);
 }
+/***********************************************
 
+	Get normal at the intersection
+
+************************************************/
 vec3 SimplePolygon::normal_at_intersection(const Ray & ray, float t)
 {
 	vec3 P = ray.start + ray.dir * t;
@@ -209,7 +204,11 @@ vec3 SimplePolygon::normal_at_intersection(const Ray & ray, float t)
 
 	return vec3(0, 0, 0);
 }
+/***********************************************
 
+	Custom Constructor
+
+************************************************/
 Ellipsoid::Ellipsoid(const vec3 & center, const vec3 & u, const vec3 & v, const vec3 & w, const Material & mat)
 {
 	this->center = center;
@@ -218,12 +217,20 @@ Ellipsoid::Ellipsoid(const vec3 & center, const vec3 & u, const vec3 & v, const 
 	this->w_vector = w;
 	this->mat = mat;
 }
+/***********************************************
 
+	Intersect
+
+************************************************/
 float Ellipsoid::intersection(const Ray & ray)
 {
 	return intersection_ray_ellipsoid(ray, *this);
 }
+/***********************************************
 
+	Get normal at the intersection
+
+************************************************/
 vec3 Ellipsoid::normal_at_intersection(const Ray & ray, float t)
 {
 	vec3 P = ray.start + ray.dir * t;
@@ -234,7 +241,11 @@ vec3 Ellipsoid::normal_at_intersection(const Ray & ray, float t)
 
 	return normal;
 }
+/***********************************************
 
+	Custom Constructor
+
+************************************************/
 Triangle::Triangle(const vec3 & vertex0, const vec3 & vertex1, const vec3 & vertex2)
 {
 	vertex_0 = vertex0;
@@ -248,7 +259,11 @@ Triangle::Triangle(const vec3 & vertex0, const vec3 & vertex1, const vec3 & vert
 
 	plane = Plane{ vertex_0, normal };
 }
+/***********************************************
 
+	Sample a random point in a sphere
+
+************************************************/
 vec3 sample_sphere(const float & r)
 {
 	vec3 randP;
