@@ -105,6 +105,22 @@ struct SimplePolygon : public Base
 
 	SimplePolygon() = default;
 	SimplePolygon(const std::vector <vec3>& vertices, const Material& mat);
+	SimplePolygon(const std::vector <vec3>& vertices, const std::vector <vec3>& indices, const Material& mat);
+	float intersection(const Ray & ray);
+	vec3 normal_at_intersection(const Ray & ray, float t);
+};
+
+struct Mesh : public Base
+{
+	vec3 position;
+	vec3 euler_angles;
+	float uniform_scale;
+
+	SimplePolygon poly;
+
+	Mesh() = default;
+	Mesh(const vec3& pos,const vec3& euler, const float& scale, std::vector<vec3> vertices,
+		std::vector<vec3> faces, const Material & mat);
 	float intersection(const Ray & ray);
 	vec3 normal_at_intersection(const Ray & ray, float t);
 };

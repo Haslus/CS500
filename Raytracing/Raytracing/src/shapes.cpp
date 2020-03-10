@@ -178,6 +178,18 @@ SimplePolygon::SimplePolygon(const std::vector<vec3>& vertices, const Material &
 		triangles.push_back(Triangle{ this->vertices[0],this->vertices[i + 1], this->vertices[i + 2] });
 	}
 }
+SimplePolygon::SimplePolygon(const std::vector<vec3>& vertices, const std::vector<vec3>& indices,const Material & mat)
+{
+	this->vertices = vertices;
+	this->mat = mat;
+	this->number_of_vertices = vertices.size();
+
+
+	for (int i = 0; i < indices.size(); i++)
+	{
+		triangles.push_back(Triangle{ this->vertices[indices[i][0]],this->vertices[indices[i][1]], this->vertices[indices[i][2]] });
+	}
+}
 /***********************************************
 
 	Intersect
@@ -276,4 +288,32 @@ vec3 sample_sphere(const float & r)
 	float c = std::cbrt(u);
 
 	return randP * c * r;
+}
+
+Mesh::Mesh(const vec3& pos, const vec3& euler, const float& scale, std::vector<vec3> vertices,
+	std::vector<vec3> faces, const Material & mat)
+{
+	position = pos;
+	euler_angles = euler;
+	uniform_scale = scale;
+
+	mat4 M2W = glm::translate(pos) * glm::scale(vec3(scale)) * glm::mat4(glm::quat(euler));
+
+
+	for (auto & vert : vertices)
+	{
+		vert = vec3(M2W * vec4(vert,1));
+	}
+
+	poly = SimplePolygon( vertices,faces,mat );
+}
+
+float Mesh::intersection(const Ray & ray)
+{
+	return poly.intersection(ray);
+}
+
+vec3 Mesh::normal_at_intersection(const Ray & ray, float t)
+{
+	return poly.normal_at_intersection(ray, t);
 }

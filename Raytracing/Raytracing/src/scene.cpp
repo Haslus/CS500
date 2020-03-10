@@ -45,6 +45,25 @@ vec3 extract_vec3(std::string line)
 }
 /***********************************************
 
+	Extract a face from a string
+
+************************************************/
+vec3 extract_face(std::string line)
+{
+	std::string x = line.substr(0, line.find('/'));
+	line = line.substr(line.find('/') + 1);
+	std::string y = line.substr(0, line.find('/'));
+	line = line.substr(line.find('/') + 1);
+	std::string z = line.substr(0);
+
+	vec3 result;
+	result.x = std::stoi(x);
+	result.y = std::stoi(y);
+	result.z = std::stoi(z);
+	return result;
+}
+/***********************************************
+
 	Parser of the scene
 
 ************************************************/
@@ -134,6 +153,78 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 				objects.push_back(new Ellipsoid{ center,u,v,w,parse_material(&line) });
 			}
 
+			if (line.find("MESH") != std::string::npos)
+			{
+				std::string filename = line.substr(line.find_first_of(' ') + 1);
+
+				std::ifstream mesh_file;
+				mesh_file.open(filename);
+				std::string mesh_line;
+
+				if (!mesh_file)
+				{
+					std::cout << "Invalid path." << std::endl;
+					std::abort();
+				}
+				std::vector<vec3> vertices, indices;
+				while (std::getline(mesh_file, mesh_line))
+				{
+					//Ignore if it starts with #
+					if (mesh_line[0] == '#')
+						continue;
+
+					//Extract vertex
+					if (mesh_line[0] == 'v' && mesh_line[1] == ' ')
+					{
+						mesh_line = mesh_line.substr(2);
+						std::string vx = mesh_line.substr(0, mesh_line.find_first_of(' '));
+						mesh_line = mesh_line.substr(mesh_line.find_first_of(' ') + 1);
+						std::string vy = mesh_line.substr(0, mesh_line.find_first_of(' '));
+						mesh_line = mesh_line.substr(mesh_line.find_first_of(' ') + 1);
+						std::string vz = mesh_line;
+
+						vec3 vertex{std::stof(vx),std::stof(vy), std::stof(vz)};
+						vertices.push_back(vertex);
+					}
+
+					//Extract face
+					else if (mesh_line[0] == 'f')
+					{
+						mesh_line = mesh_line.substr(2);
+						std::string text_face_1 = mesh_line.substr(0, mesh_line.find_first_of(' '));
+						mesh_line = mesh_line.substr(mesh_line.find_first_of(' ') + 1);
+						std::string text_face_2 = mesh_line.substr(0, mesh_line.find_first_of(' '));
+						mesh_line = mesh_line.substr(mesh_line.find_first_of(' ') + 1);
+						std::string text_face_3 = mesh_line.substr(0, mesh_line.find_first_of(' '));
+
+						vec3 face_1 = extract_face(text_face_1);
+						vec3 face_2 = extract_face(text_face_2);
+						vec3 face_3 = extract_face(text_face_3);
+
+						indices.push_back(face_1);
+						indices.push_back(face_2);
+						indices.push_back(face_3);
+					}
+
+				}
+
+				std::getline(file, line);
+				std::string text_pos = line.substr(1, line.find_first_of(')') - 1);
+				line = line.substr(line.find_first_of(' ') + 1);
+				std::string text_angle = line.substr(1, line.find_first_of(')') - 1);
+				line = line.substr(line.find_first_of(' ') + 1);
+				std::string text_scale = line;
+
+				std::getline(file, line);
+			;
+
+				Mesh * mesh = new Mesh(extract_vec3(text_pos),extract_vec3(text_angle),std::stof(text_scale),
+					vertices,indices, parse_material(&line));
+
+
+				objects.push_back(mesh);
+			}
+
 			if (line.find("LIGHT") != std::string::npos)
 			{
 				lights.push_back(parse_light(&line));
@@ -178,6 +269,8 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 
 
 			}
+
+
 		}
 
 		file.close();
@@ -290,7 +383,7 @@ void Scene::Setup()
 	Throw a Ray
 
 ************************************************/
-vec3 Scene::Intersect(const Ray & ray, const int& d )
+vec3 Scene::Intersect(const Ray & ray, const int& d, const float & n_i )
 {
 	//MAX DEPTH REACHED
 	if (d < 0)
@@ -326,7 +419,20 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 
 	vec3 ID{ 0, 0, 0};
 	vec3 IS{ 0, 0, 0};
-	
+
+	float n_t = 1;
+	//TODO
+	if (n_i == 1)
+		n_t = 0; //Index of refraction of object at P
+
+	//Reflection coefficient
+	//TODO
+	float R;
+	//Specular reflection coefficient of object
+	float ks = material.specular_reflection;
+	R *= ks;
+
+	//TODO CHANGE KS FOR R
 	//APPLY LOCAL ILLUMINATION
 	for (Light & light : lights)
 	{
@@ -405,8 +511,6 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 	}
 
 	color += material.diffuse_color * ID + material.specular_reflection * IS;
-	//Clamp color
-	//color = glm::clamp(color, vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
 	
 	//Use attenuation
 	vec3 att = { 1.0f,1.0f,1.0f };
@@ -418,35 +522,47 @@ vec3 Scene::Intersect(const Ray & ray, const int& d )
 		att.z = glm::pow(air_attenuation.z, glm::length(ray.start - P));
 	}
 
-	float R = material.specular_reflection;
-
-	//If there is no reflection just return
-	if (R == 0.0f)
-		return att * color;
-
-	//color *= 1.0f - material.specular_reflection;
-	vec3 reflected_dir = glm::normalize(glm::reflect(ray.dir,normal));
-
-	//Check for roughness
-	if (material.roughness > 0.0f)
+	if (R != 0.0f)
 	{
-		vec3 reflec_color = vec3(0, 0, 0);
+		vec3 reflected_dir = glm::normalize(glm::reflect(ray.dir, normal));
 
-		for (int i = 0; i < reflection_samples; i++)
+		if (material.roughness > 0.0f)
 		{
-			Ray reflected_ray{ P, glm::normalize(reflected_dir + sample_sphere(material.roughness))};
-			reflec_color += Intersect(reflected_ray, d - 1);
+			vec3 reflec_color = vec3(0, 0, 0);
+
+			for (int i = 0; i < reflection_samples; i++)
+			{
+				Ray reflected_ray{ P, glm::normalize(reflected_dir + sample_sphere(material.roughness)) };
+				reflec_color += Intersect(reflected_ray, d - 1);
+			}
+
+			reflec_color /= reflection_samples;
+			color = (color + R * reflec_color);
 		}
+		else
+		{
 
-		reflec_color /= reflection_samples;
-		return att * (color + R * reflec_color);
+			Ray reflected_ray{ P, reflected_dir };
+			color = (color + R * Intersect(reflected_ray, d - 1,n_i));
+		}
 	}
-	else
+	//Transmission coefficient of object at P
+	//TODO
+	float T;
+	T *= ks;
+
+	if (T != 0.0f)
 	{
-
-		Ray reflected_ray{ P, reflected_dir};
-		return att * (color + R * Intersect(reflected_ray, d - 1));
+		//TODO
+		vec3 transmitted_dir;
+		Ray transmitted_ray{ P, transmitted_dir };
+		color = (color + T * Intersect(transmitted_ray, d - 1, n_t));
 	}
+
+	return color;
+
+	//Absorb
+	//color *= 1.0f - material.specular_reflection;
 
 	
 }
