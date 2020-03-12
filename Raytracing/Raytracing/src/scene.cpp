@@ -201,9 +201,7 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 						vec3 face_2 = extract_face(text_face_2);
 						vec3 face_3 = extract_face(text_face_3);
 
-						indices.push_back(face_1);
-						indices.push_back(face_2);
-						indices.push_back(face_3);
+						indices.push_back(vec3{ face_1.x - 1,face_2.x - 1, face_3.x  - 1});
 					}
 
 				}
@@ -216,7 +214,6 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 				std::string text_scale = line;
 
 				std::getline(file, line);
-			;
 
 				Mesh * mesh = new Mesh(extract_vec3(text_pos),extract_vec3(text_angle),std::stof(text_scale),
 					vertices,indices, parse_material(&line));
@@ -383,7 +380,7 @@ void Scene::Setup()
 	Throw a Ray
 
 ************************************************/
-vec3 Scene::Intersect(const Ray & ray, const int& d, const float & n_i )
+vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
 {
 	//MAX DEPTH REACHED
 	if (d < 0)
@@ -409,10 +406,13 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const float & n_i )
 	if (index == -1 || t == -1)
 		return vec3{ 0,0,0 };
 
+
 	Material material = objects[index]->mat;
 	vec3 normal = objects[index]->normal_at_intersection(ray, t);
 	vec3 color = global_ambient * material.diffuse_color;
 	
+	//DEBUG
+	return  material.diffuse_color;
 	vec3 P = (ray.start + ray.dir * t) + epsilon * normal;
 	vec3 viewVec = glm::normalize(ray.start - P);
 
@@ -420,14 +420,29 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const float & n_i )
 	vec3 ID{ 0, 0, 0};
 	vec3 IS{ 0, 0, 0};
 
+	float n_i = glm::sqrt(incident.electric_perimittivity * incident.magnetic_permeability);
 	float n_t = 1;
-	//TODO
+	//Index of refraction
 	if (n_i == 1)
-		n_t = 0; //Index of refraction of object at P
-
-	//Reflection coefficient
+		n_t = glm::sqrt(material.electric_perimittivity * material.magnetic_permeability); //Index of refraction of object at P
+	
+																						   //TODO
+	float angle_I = 0;
 	//TODO
-	float R;
+	//Reflection coefficient
+	float ER_perp = (n_i / n_t) * glm::cos(angle_I) - (incident.magnetic_permeability / material.magnetic_permeability) *
+		glm::sqrt(1.0f - (n_i / n_t) *  (n_i / n_t) * (1.0f - glm::cos(angle_I)*glm::cos(angle_I)));
+	
+	float EI_perp = (n_i / n_t) * glm::cos(angle_I) + (incident.magnetic_permeability / material.magnetic_permeability) *
+		glm::sqrt(1.0f - (n_i / n_t) *  (n_i / n_t) * (1.0f - glm::cos(angle_I)*glm::cos(angle_I)));
+
+	float ER_para = (incident.magnetic_permeability / material.magnetic_permeability) * glm::cos(angle_I) - (n_i / n_t) *
+		glm::sqrt(1.0f - (n_i / n_t) *  (n_i / n_t) * (1.0f - glm::cos(angle_I)*glm::cos(angle_I)));
+
+	float EI_para = (incident.magnetic_permeability / material.magnetic_permeability) * glm::cos(angle_I) - (n_i / n_t) *
+		glm::sqrt(1.0f - (n_i / n_t) *  (n_i / n_t) * (1.0f - glm::cos(angle_I)*glm::cos(angle_I)));
+
+	float R = 0.5f * (glm::pow(ER_perp / EI_perp,2) + glm::pow(ER_para / EI_para, 2));
 	//Specular reflection coefficient of object
 	float ks = material.specular_reflection;
 	R *= ks;
@@ -548,7 +563,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const float & n_i )
 	}
 	//Transmission coefficient of object at P
 	//TODO
-	float T;
+	float T = 1.0f - R;
 	T *= ks;
 
 	if (T != 0.0f)

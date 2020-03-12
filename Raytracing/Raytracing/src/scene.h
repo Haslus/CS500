@@ -26,7 +26,7 @@ public:
 	Scene() = default;
 	Scene(const std::string & filepath, int width, int height, std::string output_name = "Out.png");
 	void Setup();
-	vec3 Intersect(const Ray & ray, const int&d = 1, const float & n_i = 1);
+	vec3 Intersect(const Ray & ray, const int&d = 1, const Material & incident);
 	void GenerateRays();
 	void GenerateRaysRange(int begin, int end);
 	void GenerateImage();

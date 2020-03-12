@@ -10,6 +10,7 @@ Creation date: 1/8/2020
 #include "shapes.h"
 #include "collision.h"
 #include <glm\gtc\random.hpp>
+#include <glm\gtx\euler_angles.hpp>
 /***********************************************
 
 	Custom Constructor
@@ -296,16 +297,24 @@ Mesh::Mesh(const vec3& pos, const vec3& euler, const float& scale, std::vector<v
 	position = pos;
 	euler_angles = euler;
 	uniform_scale = scale;
+	this->mat = mat;
 
-	mat4 M2W = glm::translate(pos) * glm::scale(vec3(scale)) * glm::mat4(glm::quat(euler));
+	std::vector<vec3> transformed_verts;
+	mat4 RX = glm::rotate(glm::radians(euler.x), vec3(1, 0, 0));
+	mat4 RY = glm::rotate(glm::radians(euler.y), vec3(0, 1, 0));
+	mat4 RZ = glm::rotate(glm::radians(euler.z), vec3(0, 0, 1));
+	mat4 R = RX * RY * RZ;
+	//mat4 R = glm::eulerAngleXYZ(euler_angles.x, euler_angles.y, euler_angles.z);
+	//mat4 R = glm::toMat4(glm::quat({euler_angles));
+	mat4 M2W = glm::translate(position) * R * glm::scale(vec3(uniform_scale));
 
 
-	for (auto & vert : vertices)
+	for (auto vert : vertices)
 	{
-		vert = vec3(M2W * vec4(vert,1));
+		transformed_verts.push_back(vec3(M2W * vec4(vert,1)));
 	}
 
-	poly = SimplePolygon( vertices,faces,mat );
+	poly = SimplePolygon(transformed_verts,faces,mat );
 }
 
 float Mesh::intersection(const Ray & ray)
