@@ -31,6 +31,7 @@ static void error_callback(int error, const char* description)
 ************************************************/
 vec3 extract_vec3(std::string line)
 {
+
 	std::string x = line.substr(0, line.find(','));
 	line = line.substr(line.find(',') + 1);
 	std::string y = line.substr(0, line.find(','));
@@ -69,6 +70,10 @@ vec3 extract_face(std::string line)
 ************************************************/
 Scene::Scene(const std::string & filepath, int width, int height, std::string output_name)
 {
+	//Initialize just in case
+	air.attenuation = vec3(1, 1, 1);
+	air.magnetic_permeability = 1;
+	air.electric_perimittivity = 1;
 	//Read Scene File
 	{
 		std::ifstream file;
@@ -103,9 +108,7 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 			{
 				std::string line2;
 				std::getline(file, line2);
-				std::string line3;
-				std::getline(file, line3);
-				std::string lines[3] = { line,line2,line3 };
+				std::string lines[2] = { line,line2 };
 				boxes.push_back(parse_box(lines));
 				objects.push_back(new Box{ boxes.back() });
 
@@ -166,7 +169,7 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 					std::cout << "Invalid path." << std::endl;
 					std::abort();
 				}
-				std::vector<vec3> vertices, indices;
+				std::vector<vec3> vertices, indices,normals, normal_indices;
 				while (std::getline(mesh_file, mesh_line))
 				{
 					//Ignore if it starts with #
@@ -187,6 +190,20 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 						vertices.push_back(vertex);
 					}
 
+					//Extract normal
+					else if (mesh_line[0] == 'v' && mesh_line[1] == 'n')
+					{
+						mesh_line = mesh_line.substr(3);
+						std::string vx = mesh_line.substr(0, mesh_line.find_first_of(' '));
+						mesh_line = mesh_line.substr(mesh_line.find_first_of(' ') + 1);
+						std::string vy = mesh_line.substr(0, mesh_line.find_first_of(' '));
+						mesh_line = mesh_line.substr(mesh_line.find_first_of(' ') + 1);
+						std::string vz = mesh_line;
+
+						vec3 normal{ std::stof(vx),std::stof(vy), std::stof(vz) };
+						normals.push_back(normal);
+					}
+
 					//Extract face
 					else if (mesh_line[0] == 'f')
 					{
@@ -202,6 +219,7 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 						vec3 face_3 = extract_face(text_face_3);
 
 						indices.push_back(vec3{ face_1.x - 1,face_2.x - 1, face_3.x  - 1});
+						normal_indices.push_back(vec3{ face_1.z - 1,face_2.z - 1, face_3.z - 1 });
 					}
 
 				}
@@ -216,7 +234,7 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 				std::getline(file, line);
 
 				Mesh * mesh = new Mesh(extract_vec3(text_pos),extract_vec3(text_angle),std::stof(text_scale),
-					vertices,indices, parse_material(&line));
+					vertices,indices, normals, normal_indices,parse_material(&line));
 
 
 				objects.push_back(mesh);
@@ -383,71 +401,77 @@ void Scene::Setup()
 vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
 {
 	//MAX DEPTH REACHED
-	if (d < 0)
+	if (d == 0)
 		return vec3{ 0, 0, 0 };
 
 	float d_max = FLT_MAX - 1.f;
 	int index = -1;
-	float t = -1;
+	float t = -1.0f;
 	//Intersect objects
+	IntersectionData data;
 	for (int i = 0; i < objects.size(); i++)
 	{
-		float d = objects[i]->intersection(ray);
 
-		if (d >= 0.f && d <= d_max)
+		IntersectionData temp = objects[i]->intersection_data(ray);
+
+		if (temp.t > 0.f && temp.t < d_max)
 		{
-			d_max = d;
+			d_max = temp.t;
 			index = i;
-			t = d;
+			data = temp;
 		}
+		
 
 	}
 	//NO INTERSECTION
-	if (index == -1 || t == -1)
+	if (index == -1 || data.t == -1.0f)
 		return vec3{ 0,0,0 };
 
 
 	Material material = objects[index]->mat;
-	vec3 normal = objects[index]->normal_at_intersection(ray, t);
+	vec3 normal = data.normal;
 	vec3 color = global_ambient * material.diffuse_color;
-	
+
 	//DEBUG
-	return  material.diffuse_color;
-	vec3 P = (ray.start + ray.dir * t) + epsilon * normal;
+	//if (glm::dot(data.normal, ray.dir) > 0.f)
+	//	return vec3{ 1,1,0 };
+	//else
+	//	return data.normal;
+
+	vec3 P = data.PI + epsilon * normal;
 	vec3 viewVec = glm::normalize(ray.start - P);
 
 
-	vec3 ID{ 0, 0, 0};
-	vec3 IS{ 0, 0, 0};
+	vec3 ID{ 0, 0, 0 };
+	vec3 IS{ 0, 0, 0 };
 
 	float n_i = glm::sqrt(incident.electric_perimittivity * incident.magnetic_permeability);
-	float n_t = 1;
+	float n_t = 1.0f;
 	//Index of refraction
-	if (n_i == 1)
+	if (n_i == 1.0f)
 		n_t = glm::sqrt(material.electric_perimittivity * material.magnetic_permeability); //Index of refraction of object at P
-	
-																						   //TODO
-	float angle_I = 0;
+
+	//TODO
+	float angle_I = glm::dot(ray.dir, normal);
 	//TODO
 	//Reflection coefficient
-	float ER_perp = (n_i / n_t) * glm::cos(angle_I) - (incident.magnetic_permeability / material.magnetic_permeability) *
-		glm::sqrt(1.0f - (n_i / n_t) *  (n_i / n_t) * (1.0f - glm::cos(angle_I)*glm::cos(angle_I)));
-	
-	float EI_perp = (n_i / n_t) * glm::cos(angle_I) + (incident.magnetic_permeability / material.magnetic_permeability) *
-		glm::sqrt(1.0f - (n_i / n_t) *  (n_i / n_t) * (1.0f - glm::cos(angle_I)*glm::cos(angle_I)));
+	float ER_perp = (n_i / n_t) * angle_I - (incident.magnetic_permeability / material.magnetic_permeability) *
+		glm::sqrt(1.0f - (n_i / n_t) *  (n_i / n_t) * (1.0f - glm::pow(angle_I, 2)));
 
-	float ER_para = (incident.magnetic_permeability / material.magnetic_permeability) * glm::cos(angle_I) - (n_i / n_t) *
-		glm::sqrt(1.0f - (n_i / n_t) *  (n_i / n_t) * (1.0f - glm::cos(angle_I)*glm::cos(angle_I)));
+	float EI_perp = (n_i / n_t) * angle_I + (incident.magnetic_permeability / material.magnetic_permeability) *
+		glm::sqrt(1.0f - (n_i / n_t) *  (n_i / n_t) * (1.0f - glm::pow(angle_I, 2)));
 
-	float EI_para = (incident.magnetic_permeability / material.magnetic_permeability) * glm::cos(angle_I) - (n_i / n_t) *
-		glm::sqrt(1.0f - (n_i / n_t) *  (n_i / n_t) * (1.0f - glm::cos(angle_I)*glm::cos(angle_I)));
+	float ER_para = (incident.magnetic_permeability / material.magnetic_permeability) * angle_I - (n_i / n_t) *
+		glm::sqrt(1.0f - (n_i / n_t) *  (n_i / n_t) * (1.0f - glm::pow(angle_I, 2)));
 
-	float R = 0.5f * (glm::pow(ER_perp / EI_perp,2) + glm::pow(ER_para / EI_para, 2));
+	float EI_para = (incident.magnetic_permeability / material.magnetic_permeability) * angle_I + (n_i / n_t) *
+		glm::sqrt(1.0f - (n_i / n_t) *  (n_i / n_t) * (1.0f - glm::pow(angle_I, 2)));
+
+	float real_R = 0.5f * (glm::pow(ER_perp / EI_perp, 2) + glm::pow(ER_para / EI_para, 2));
 	//Specular reflection coefficient of object
 	float ks = material.specular_reflection;
-	R *= ks;
+	float R = ks;
 
-	//TODO CHANGE KS FOR R
 	//APPLY LOCAL ILLUMINATION
 	for (Light & light : lights)
 	{
@@ -463,11 +487,11 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
 
 			for (int i = 0; i < objects.size(); i++)
 			{
-				float d = objects[i]->intersection(temp_ray);
+				IntersectionData temp = objects[i]->intersection_data(temp_ray);
 
-				if (d != -1.0f && d <= distance)
+				if (temp.t != -1.0f && temp.t <= distance)
 				{
-					vec3 point = temp_ray.start + temp_ray.dir * d;
+					vec3 point = temp.PI;
 
 					if (glm::length(point - P) <= distance)
 					{
@@ -479,7 +503,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
 
 			}
 
-		}	
+		}
 
 		else if (useSS)
 		{
@@ -493,11 +517,11 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
 
 				for (int i = 0; i < objects.size(); i++)
 				{
-					float d = objects[i]->intersection(ray);
+					IntersectionData temp = objects[i]->intersection_data(ray);
 
-					if (d != -1.0f && d <= distance)
+					if (temp.t != -1.0f && temp.t <= distance)
 					{
-						vec3 point = ray.start + ray.dir * d;
+						vec3 point = temp.PI;
 
 						if (glm::length(point - P) <= distance)
 						{
@@ -513,7 +537,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
 
 		}
 
-			
+
 
 		//Calculate Diffuse factor
 		ID += glm::max(glm::dot(normal, lightDir), 0.0f) * light.color * shadow_factor;
@@ -525,7 +549,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
 
 	}
 
-	color += material.diffuse_color * ID + material.specular_reflection * IS;
+	color += material.diffuse_color * ID + R * IS;
 	
 	//Use attenuation
 	vec3 att = { 1.0f,1.0f,1.0f };
@@ -537,7 +561,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
 		att.z = glm::pow(air_attenuation.z, glm::length(ray.start - P));
 	}
 
-	if (R != 0.0f)
+	if (R > 0.0f)
 	{
 		vec3 reflected_dir = glm::normalize(glm::reflect(ray.dir, normal));
 
@@ -548,7 +572,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
 			for (int i = 0; i < reflection_samples; i++)
 			{
 				Ray reflected_ray{ P, glm::normalize(reflected_dir + sample_sphere(material.roughness)) };
-				reflec_color += Intersect(reflected_ray, d - 1);
+				reflec_color += Intersect(reflected_ray, d - 1, air);
 			}
 
 			reflec_color /= reflection_samples;
@@ -558,28 +582,39 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
 		{
 
 			Ray reflected_ray{ P, reflected_dir };
-			color = (color + R * Intersect(reflected_ray, d - 1,n_i));
+			vec3 temp1 = color;
+			vec3 temp3 = Intersect(reflected_ray, d - 1, air);
+			vec3 temp2 = (R * temp3);
+			color = (color + temp2);
+			color *= 1.0f - R;
+
 		}
 	}
+
 	//Transmission coefficient of object at P
 	//TODO
-	float T = 1.0f - R;
+	float T = 1.0f - real_R;
 	T *= ks;
-
-	if (T != 0.0f)
+	//T = 0;
+	if (T > 0.0f)
 	{
 		//TODO
-		vec3 transmitted_dir;
-		Ray transmitted_ray{ P, transmitted_dir };
-		color = (color + T * Intersect(transmitted_ray, d - 1, n_t));
+	//	float radicand = 1.0f - glm::pow(n_i / n_t, 2) * (1.0f - glm::pow(glm::dot(ray.dir, normal), 2));
+	//	if (radicand > 0.0f)
+	//	{
+			vec3 transmitted_dir = glm::normalize(glm::refract(-ray.dir, normal, n_i / n_t));
+			Ray transmitted_ray{ P, transmitted_dir };
+			color = (color + T * Intersect(transmitted_ray, d - 1, material));
+	//	}
+
 	}
+	
 
 	return color;
 
 	//Absorb
-	//color *= 1.0f - material.specular_reflection;
 
-	
+
 }
 /***********************************************
 
@@ -602,7 +637,7 @@ void Scene::GenerateRays()
 			vec3 P = camera.center + static_cast<float>((j - halfWidth + 0.5f) / halfWidth) * camera.right - static_cast<float>((i - halfHeigth + 0.5f) / halfHeigth) * camera.up;
 			Ray ray{ start,glm::normalize(P - start) };
 			rays.push_back(ray);
-			intersection_data[i * width + j] = Intersect(ray,max_depth);
+			intersection_data[i * width + j] = Intersect(ray,max_depth,air);
 
 		}
 }
@@ -624,8 +659,93 @@ void Scene::GenerateRaysRange(int begin, int end)
 		for (int j = 0; j < width; j++)
 		{
 			vec3 P = camera.center + static_cast<float>((j - halfWidth + 0.5f) / halfWidth) * camera.right - static_cast<float>((i - halfHeigth + 0.5f) / halfHeigth) * camera.up;
-			Ray ray{ start,glm::normalize(P - start) };
-			intersection_data[i * width + j] = glm::clamp(Intersect(ray, max_depth), vec3(0), vec3(1));
+			
+
+			switch (AA_method)
+			{
+			case AntiAliasing::NONE:
+			{
+				Ray ray{ start,glm::normalize(P - start) };
+				intersection_data[i * width + j] = glm::clamp(Intersect(ray, max_depth, air), vec3(0), vec3(1));
+				break;
+			}
+			case AntiAliasing::SUPER:
+			{
+				vec3 delta_right = static_cast<float>((j + 1 - halfWidth + 0.5f) / halfWidth) * camera.right;
+				delta_right /= AA_samples;
+				vec3 delta_down = -static_cast<float>((i + 1 - halfHeigth + 0.5f) / halfHeigth) * camera.up;
+				delta_down /= AA_samples;
+
+				vec3 color;
+				for (float d = 0; d < glm::sqrt(AA_samples); d++)
+					for (float r = 0; r < glm::sqrt(AA_samples); r++)
+					{
+						Ray ray{ start,glm::normalize(P + delta_right * r + delta_down * d - start) };
+						color += glm::clamp(Intersect(ray, max_depth, air), vec3(0), vec3(1));
+					}
+				color /= AA_samples;
+				intersection_data[i * width + j] = color;
+				break;
+			}
+			case AntiAliasing::ADAPTIVE:
+			{
+				//Get the four corners
+				vec3 delta_right = static_cast<float>((j + 1 - halfWidth + 0.5f) / halfWidth) * camera.right;
+				delta_right /= 2;
+				vec3 delta_down = -static_cast<float>((i + 1 - halfHeigth + 0.5f) / halfHeigth) * camera.up;
+				delta_down /= 2;
+
+				vec3 left_top = P - delta_right - delta_down;
+				vec3 right_top = P + delta_right - delta_down;
+				vec3 left_bot = P - delta_right + delta_down;
+				vec3 right_bot = P + delta_right + delta_down;
+
+				vec3 corners[4] = { left_top ,right_top ,left_bot,right_bot };
+				vec3 colors[5] = {vec3(0)};
+				for (int k = 0; k < 4; k++)
+				{
+					Ray ray{ start, glm::normalize(corners[k] - start) };
+					colors[k] = glm::clamp(Intersect(ray, max_depth, air), vec3(0), vec3(1));
+				}
+
+				colors[4] = colors[0];
+
+				bool tolerated = true;
+				for (int k = 0; k < 4; k++)
+				{
+					float tolerance = glm::length(colors[k] - colors[k + 1]);
+
+					if (tolerance > adaptive_AA_tolerance)
+					{
+						tolerated = false;
+						break;
+					}
+
+				}
+
+				if (tolerated)
+				{
+					vec3 final_color = colors[0] + colors[1] + colors[2] + colors[3];
+					final_color /= 4.0f;
+					intersection_data[i * width + j] = final_color;
+				}
+				//Need to subdivide
+				else
+				{
+					vec3 left_top_color = AdpativeASubdivision(start,left_top, delta_right / 2.0f, delta_down / 2.0f, adaptive_AA_recursion - 1);
+					vec3 right_top_color = AdpativeASubdivision(start,left_top + delta_right / 2.0f, delta_right / 2.0f, delta_down / 2.0f, adaptive_AA_recursion - 1);
+					vec3 left_bot_color = AdpativeASubdivision(start,left_top + delta_down / 2.0f, delta_right / 2.0f, delta_down / 2.0f, adaptive_AA_recursion - 1);
+					vec3 right_bot_color = AdpativeASubdivision(start,left_top + delta_right / 2.0f + delta_down / 2.0f, delta_right / 2.0f, delta_down / 2.0f, adaptive_AA_recursion - 1);
+
+					vec3 final_color = left_top_color + right_top_color + left_bot_color + right_bot_color;
+					final_color /= 4.0f;
+					intersection_data[i * width + j] = final_color;
+				}
+
+				break;
+			}
+			}
+			
 
 		}
 }
@@ -647,6 +767,59 @@ void Scene::GenerateImage()
 		converted_data.push_back(static_cast<unsigned char>(data.z * 255.99f));
 	}
 	stbi_write_png(output_name.c_str(), width, height, 3, converted_data.data(),0);
+}
+
+vec3 Scene::AdpativeASubdivision(vec3 start, vec3 P, vec3 delta_right, vec3 delta_down, int recursion)
+{
+
+	//Get the four corners
+
+	vec3 left_top = P;
+	vec3 right_top = P + delta_right - delta_down;
+	vec3 left_bot = P - delta_right + delta_down;
+	vec3 right_bot = P + delta_right + delta_down;
+
+	vec3 corners[4] = { left_top ,right_top ,left_bot,right_bot };
+	vec3 colors[5];
+	for (int k = 0; k < 4; k++)
+	{
+		Ray ray{ start, glm::normalize(corners[k] - start) };
+		colors[k] = glm::clamp(Intersect(ray, max_depth, air), vec3(0), vec3(1));
+	}
+
+	colors[4] = colors[0];
+
+	bool tolerated = true;
+	for (int k = 0; k < 4; k++)
+	{
+		float tolerance = glm::length(colors[k] - colors[k + 1]);
+
+		if (tolerance > adaptive_AA_tolerance)
+		{
+			tolerated = false;
+			break;
+		}
+
+	}
+
+	if (tolerated)
+	{
+		vec3 final_color = colors[0] + colors[1] + colors[2] + colors[3];
+		final_color /= 4.0f;
+		return final_color;
+	}
+	//Need to subdivide
+	else
+	{
+		vec3 left_top_color = AdpativeASubdivision(start,left_top, delta_right / 2.0f, delta_down / 2.0f, adaptive_AA_recursion - 1);
+		vec3 right_top_color = AdpativeASubdivision(start,left_top + delta_right / 2.0f, delta_right / 2.0f, delta_down / 2.0f, adaptive_AA_recursion - 1);
+		vec3 left_bot_color = AdpativeASubdivision(start,left_top + delta_down / 2.0f, delta_right / 2.0f, delta_down / 2.0f, adaptive_AA_recursion - 1);
+		vec3 right_bot_color = AdpativeASubdivision(start,left_top + delta_right / 2.0f + delta_down / 2.0f, delta_right / 2.0f, delta_down / 2.0f, adaptive_AA_recursion - 1);
+
+		vec3 final_color = left_top_color + right_top_color + left_bot_color + right_bot_color;
+		final_color /= 4.0f;
+		return final_color;
+	}
 }
 
 /***********************************************
@@ -827,9 +1000,6 @@ Sphere parse_sphere(const std::string * lines)
 
 	vec3 center;
 	float radius;
-	vec3 color;
-	float specular_reflection;
-	float specular_exponent;
 
 	center.x = std::stof(center_x);
 	center.y = std::stof(center_y);
@@ -837,12 +1007,6 @@ Sphere parse_sphere(const std::string * lines)
 
 	radius = std::stof(text_radius);
 
-	color.r = std::stof(color_r);
-	color.g = std::stof(color_g);
-	color.b = std::stof(color_b);
-
-	specular_reflection = std::stof(spec_ref);
-	specular_exponent = std::stof(spec_exp);
 
 	Material mat = parse_material(&lines[1]);
 
@@ -859,7 +1023,7 @@ Box parse_box(const std::string * lines)
 {
 	std::string text_center = lines[0].substr(lines[0].find('(') + 1, lines[0].find(')') - lines[0].find('(') - 1);
 	
-	std::string text_vectors = lines[1];
+	std::string text_vectors = lines[0].substr(lines[0].find(')') + 2);
 	std::string text_length = text_vectors.substr(text_vectors.find_first_of('(') + 1, text_vectors.find_first_of(')') - 1);
 	text_vectors = text_vectors.substr(text_vectors.find_first_of(' ') + 1);
 	std::string text_width = text_vectors.substr(text_vectors.find_first_of('(') + 1, text_vectors.find_first_of(')') - 1);
@@ -867,7 +1031,7 @@ Box parse_box(const std::string * lines)
 	std::string text_height = text_vectors.substr(text_vectors.find_first_of('(') + 1, text_vectors.find_first_of(')') - 1);
 
 
-	Material mat = parse_material(&lines[2]);
+	Material mat = parse_material(&lines[1]);
 
 	vec3 center = extract_vec3(text_center);
 	vec3 length = extract_vec3(text_length);

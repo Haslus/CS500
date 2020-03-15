@@ -42,10 +42,18 @@ struct Ray
 
 };
 
+struct IntersectionData
+{
+	vec3 PI;
+	vec3 normal;
+	float t = -1.0f;
+};
+
 struct Base
 {
 	Material mat;
 	virtual float intersection(const Ray & ray) { return -1.0f; };
+	virtual IntersectionData intersection_data(const Ray & ray) { return IntersectionData(); };
 	virtual vec3 normal_at_intersection(const Ray & ray, float t) { return vec3();}
 };
 
@@ -106,7 +114,10 @@ struct SimplePolygon : public Base
 	SimplePolygon() = default;
 	SimplePolygon(const std::vector <vec3>& vertices, const Material& mat);
 	SimplePolygon(const std::vector <vec3>& vertices, const std::vector <vec3>& indices, const Material& mat);
+	SimplePolygon(const std::vector <vec3>& vertices, const std::vector <vec3>& indices, 
+		const std::vector <vec3>& normals, const std::vector <vec3>& indices_normals, const Material& mat);
 	float intersection(const Ray & ray);
+	IntersectionData intersection_data(const Ray & ray);
 	vec3 normal_at_intersection(const Ray & ray, float t);
 };
 
@@ -119,9 +130,10 @@ struct Mesh : public Base
 	SimplePolygon poly;
 
 	Mesh() = default;
-	Mesh(const vec3& pos,const vec3& euler, const float& scale, std::vector<vec3> vertices,
-		std::vector<vec3> faces, const Material & mat);
+	Mesh(const vec3& pos,const vec3& euler, const float& scale, const std::vector<vec3>& vertices,
+		const std::vector<vec3>& faces,const std::vector<vec3>& normals, const std::vector<vec3>& idx_normals ,const Material & mat);
 	float intersection(const Ray & ray);
+	IntersectionData intersection_data(const Ray & ray);
 	vec3 normal_at_intersection(const Ray & ray, float t);
 };
 
@@ -134,6 +146,7 @@ struct Ellipsoid : public Base
 	Ellipsoid(const vec3& center, const vec3& u, const vec3& v, const vec3& w,
 		const Material& mat);
 	float intersection(const Ray & ray);
+	IntersectionData intersection_data(const Ray & ray);
 	vec3 normal_at_intersection(const Ray & ray, float t);
 };
 

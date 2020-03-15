@@ -106,6 +106,25 @@ float intersection_ray_polygon(const Ray & ray, const SimplePolygon & poly)
 	}
 	return-1.0f;
 }
+IntersectionData intersection_ray_polygon_data(const Ray & ray, const SimplePolygon & poly)
+{
+	//Check each triangle
+	IntersectionData data;
+	float t_max = FLT_MAX - 1;
+	for (int i = 0; i < poly.triangles.size(); i++)
+	{
+		IntersectionData temp = intersection_ray_triangle_data(ray, poly.triangles[i]);
+
+		if (temp.t > 0.f && temp.t < t_max)
+		{
+			t_max = temp.t;
+			data = temp;
+			data.normal = poly.triangles[i].plane.normal;
+			
+		}
+	}
+	return data;
+}
 /***********************************************
 
 	Intersection between ray and triangle
@@ -117,11 +136,14 @@ float intersection_ray_triangle(const Ray & ray, const Triangle & tri)
 	float dbot = glm::dot(ray.dir, tri.plane.normal);
 	float t = -dtop / dbot;
 
-	if (t > 0.0f)
+	if (t >= 0.0f)
 	{
 		vec3 intersection_point = ray.start + t * ray.dir;
 		if (intersection_point_triangle(intersection_point, tri))
+		{
+
 			return t;
+		}
 		else
 			return -1.0f;
 	}
@@ -129,6 +151,31 @@ float intersection_ray_triangle(const Ray & ray, const Triangle & tri)
 	{
 		return -1.0f;
 	}
+}
+IntersectionData intersection_ray_triangle_data(const Ray & ray, const Triangle & tri)
+{
+	float dtop = glm::dot((ray.start - tri.plane.point), tri.plane.normal);
+	float dbot = glm::dot(ray.dir, tri.plane.normal);
+	float t = -dtop / dbot;
+
+	if (t >= 0.0f)
+	{
+		vec3 intersection_point = ray.start + t * ray.dir;
+		if (intersection_point_triangle(intersection_point, tri))
+		{
+			IntersectionData data;
+			data.t = t;
+			data.PI = intersection_point;
+			return data;
+		}
+		else
+			return IntersectionData();
+	}
+	else
+	{
+		return IntersectionData();
+	}
+	
 }
 /***********************************************
 
@@ -154,7 +201,7 @@ bool intersection_point_triangle(const vec3 & point, const Triangle & tri)
 
 	float v = (d11 * d20 - d01 * d21) / denominator;
 	float w = (d00 * d21 - d01 * d20) / denominator;
-	float u = 1 - v - w;
+	float u = 1.0f - v - w;
 
 	if (v < 0.f || v > 1.f ||
 		w < 0.f || w > 1.f ||

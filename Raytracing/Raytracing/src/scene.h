@@ -20,16 +20,23 @@ Box parse_box(const std::string * lines);
 Light parse_light(const std::string * lines);
 Material parse_material(const std::string * lines);
 
+enum class AntiAliasing
+{
+	NONE, SUPER, ADAPTIVE
+};
+
 class Scene
 {
 public:
 	Scene() = default;
 	Scene(const std::string & filepath, int width, int height, std::string output_name = "Out.png");
 	void Setup();
-	vec3 Intersect(const Ray & ray, const int&d = 1, const Material & incident);
+	vec3 Intersect(const Ray & ray, const int&d, const Material & incident);
 	void GenerateRays();
 	void GenerateRaysRange(int begin, int end);
 	void GenerateImage();
+
+	vec3 AdpativeASubdivision(vec3 P,vec3 corner, vec3 delta_right, vec3 delta_down, int recursion);
 
 	//Window Stuff
 	void InitializeWindow();
@@ -73,10 +80,17 @@ public:
 	int reflection_samples;
 
 	//Air
+	Material air;
 	float air_electric_permittivity;
 	float air_magnetic_permeability;
 	bool use_attenuation;
 	vec3 air_attenuation;
+
+	//Aliasing
+	AntiAliasing AA_method = AntiAliasing::NONE;
+	int AA_samples = 4;
+	int adaptive_AA_recursion = 4;
+	float  adaptive_AA_tolerance = 0.1f;
 
 	
 };

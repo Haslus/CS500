@@ -188,7 +188,23 @@ SimplePolygon::SimplePolygon(const std::vector<vec3>& vertices, const std::vecto
 
 	for (int i = 0; i < indices.size(); i++)
 	{
-		triangles.push_back(Triangle{ this->vertices[indices[i][0]],this->vertices[indices[i][1]], this->vertices[indices[i][2]] });
+		triangles.push_back(Triangle( this->vertices[indices[i][0]],this->vertices[indices[i][1]], this->vertices[indices[i][2]] ));
+
+	}
+}
+SimplePolygon::SimplePolygon(const std::vector<vec3>& vertices, const std::vector<vec3>& indices, const std::vector<vec3>& normals, 
+	const std::vector<vec3>& idx_normals, const Material & mat)
+{
+	this->vertices = vertices;
+	this->mat = mat;
+	this->number_of_vertices = vertices.size();
+
+
+	for (int i = 0; i < indices.size(); i++)
+	{
+		Triangle tri = Triangle(this->vertices[indices[i][0]],this->vertices[indices[i][1]], this->vertices[indices[i][2]]);
+
+		triangles.push_back(tri);
 	}
 }
 /***********************************************
@@ -199,6 +215,10 @@ SimplePolygon::SimplePolygon(const std::vector<vec3>& vertices, const std::vecto
 float SimplePolygon::intersection(const Ray & ray)
 {
 	return intersection_ray_polygon(ray, *this);
+}
+IntersectionData SimplePolygon::intersection_data(const Ray & ray)
+{
+	return intersection_ray_polygon_data(ray, *this);
 }
 /***********************************************
 
@@ -238,6 +258,18 @@ Ellipsoid::Ellipsoid(const vec3 & center, const vec3 & u, const vec3 & v, const 
 float Ellipsoid::intersection(const Ray & ray)
 {
 	return intersection_ray_ellipsoid(ray, *this);
+}
+IntersectionData Ellipsoid::intersection_data(const Ray & ray)
+{
+	IntersectionData data;
+	data.t = intersection_ray_ellipsoid(ray, *this);
+	data.PI = ray.start + ray.dir * data.t;
+	glm::mat3x3 M{ u_vector, v_vector, w_vector };
+	glm::mat3x3 inverseM = glm::inverse(M);
+
+	data.normal = glm::normalize(glm::transpose(inverseM) * inverseM * (data.PI - center));
+
+	return data;
 }
 /***********************************************
 
@@ -291,27 +323,25 @@ vec3 sample_sphere(const float & r)
 	return randP * c * r;
 }
 
-Mesh::Mesh(const vec3& pos, const vec3& euler, const float& scale, std::vector<vec3> vertices,
-	std::vector<vec3> faces, const Material & mat)
+Mesh::Mesh(const vec3& pos, const vec3& euler, const float& scale, const std::vector<vec3>& vertices,
+	const std::vector<vec3>& faces, const std::vector<vec3>& normals, const std::vector<vec3>& idx_normals, const Material & mat)
 {
 	position = pos;
 	euler_angles = euler;
 	uniform_scale = scale;
 	this->mat = mat;
 
-	std::vector<vec3> transformed_verts;
+	std::vector<vec3> transformed_verts,transformed_normals;
 	mat4 RX = glm::rotate(glm::radians(euler.x), vec3(1, 0, 0));
 	mat4 RY = glm::rotate(glm::radians(euler.y), vec3(0, 1, 0));
 	mat4 RZ = glm::rotate(glm::radians(euler.z), vec3(0, 0, 1));
 	mat4 R = RX * RY * RZ;
-	//mat4 R = glm::eulerAngleXYZ(euler_angles.x, euler_angles.y, euler_angles.z);
-	//mat4 R = glm::toMat4(glm::quat({euler_angles));
 	mat4 M2W = glm::translate(position) * R * glm::scale(vec3(uniform_scale));
 
 
-	for (auto vert : vertices)
+	for (int i = 0; i < vertices.size(); i++)
 	{
-		transformed_verts.push_back(vec3(M2W * vec4(vert,1)));
+		transformed_verts.push_back(vec3(M2W * vec4(vertices[i],1)));
 	}
 
 	poly = SimplePolygon(transformed_verts,faces,mat );
@@ -320,6 +350,11 @@ Mesh::Mesh(const vec3& pos, const vec3& euler, const float& scale, std::vector<v
 float Mesh::intersection(const Ray & ray)
 {
 	return poly.intersection(ray);
+}
+
+IntersectionData Mesh::intersection_data(const Ray & ray)
+{
+	return poly.intersection_data(ray);
 }
 
 vec3 Mesh::normal_at_intersection(const Ray & ray, float t)
