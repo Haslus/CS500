@@ -398,7 +398,7 @@ void Scene::Setup()
 	Throw a Ray
 
 ************************************************/
-vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
+vec3 Scene::Intersect(const Ray & ray, const int& d, const bool& transmitting)
 {
 	//MAX DEPTH REACHED
 	if (d == 0)
@@ -425,10 +425,25 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
 	}
 	//NO INTERSECTION
 	if (index == -1 || data.t == -1.0f)
+	{
+
 		return vec3{ 0,0,0 };
+	}
 
-
+	Material incident, transmit;
 	Material material = objects[index]->mat;
+
+	if (transmitting == false)
+	{
+		incident = air;
+		transmit = material;
+	}
+	else
+	{
+		incident = material;
+		transmit = air;
+	}
+
 	vec3 normal = data.normal;
 	vec3 color = global_ambient * material.diffuse_color;
 
@@ -437,6 +452,10 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
 	//	return vec3{ 1,1,0 };
 	//else
 	//	return data.normal;
+	if (glm::dot(ray.dir, normal) > 0.0f)
+	{
+		normal = -normal;
+	}
 
 	vec3 P = data.PI + epsilon * normal;
 	vec3 viewVec = glm::normalize(ray.start - P);
@@ -446,31 +465,56 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
 	vec3 IS{ 0, 0, 0 };
 
 	float n_i = glm::sqrt(incident.electric_perimittivity * incident.magnetic_permeability);
-	float n_t = 1.0f;
-	//Index of refraction
-	if (n_i == 1.0f)
-		n_t = glm::sqrt(material.electric_perimittivity * material.magnetic_permeability); //Index of refraction of object at P
+	float n_t = glm::sqrt(transmit.electric_perimittivity * transmit.magnetic_permeability); //Index of refraction of object at P
 
-	//TODO
-	float angle_I = glm::dot(ray.dir, normal);
 	//TODO
 	//Reflection coefficient
-	float ER_perp = (n_i / n_t) * angle_I - (incident.magnetic_permeability / material.magnetic_permeability) *
-		glm::sqrt(1.0f - (n_i / n_t) *  (n_i / n_t) * (1.0f - glm::pow(angle_I, 2)));
+	float n_ratio = (n_i / n_t);
+	float real_R;
+	if (n_ratio < 0.01f)
+	{
+		real_R = 1.0f;
+	}
+	else
+	{
 
-	float EI_perp = (n_i / n_t) * angle_I + (incident.magnetic_permeability / material.magnetic_permeability) *
-		glm::sqrt(1.0f - (n_i / n_t) *  (n_i / n_t) * (1.0f - glm::pow(angle_I, 2)));
+		
+		
+		float cos_I = -glm::dot(glm::normalize(ray.dir), normal);
 
-	float ER_para = (incident.magnetic_permeability / material.magnetic_permeability) * angle_I - (n_i / n_t) *
-		glm::sqrt(1.0f - (n_i / n_t) *  (n_i / n_t) * (1.0f - glm::pow(angle_I, 2)));
+		float magnetic_ratio = (incident.magnetic_permeability / transmit.magnetic_permeability);
 
-	float EI_para = (incident.magnetic_permeability / material.magnetic_permeability) * angle_I + (n_i / n_t) *
-		glm::sqrt(1.0f - (n_i / n_t) *  (n_i / n_t) * (1.0f - glm::pow(angle_I, 2)));
+		float radicant = 1.0f - (glm::pow(n_ratio, 2) * (1.0f - glm::pow(cos_I, 2)));
 
-	float real_R = 0.5f * (glm::pow(ER_perp / EI_perp, 2) + glm::pow(ER_para / EI_para, 2));
+		if (radicant < 0.0f)
+		{
+			real_R = 1.0f;
+		}
+		else
+		{
+			radicant = glm::sqrt(radicant);
+
+			float ER_perp = n_ratio * cos_I - magnetic_ratio * radicant;
+
+			float EI_perp = n_ratio * cos_I + magnetic_ratio * radicant;
+
+			float ER_para = magnetic_ratio * cos_I - n_ratio * radicant;
+
+			float EI_para = magnetic_ratio * cos_I + n_ratio * radicant;
+
+			real_R = 0.5f * (glm::pow(ER_perp / EI_perp, 2) + glm::pow(ER_para / EI_para, 2));
+		}
+
+	}
+
+	
 	//Specular reflection coefficient of object
 	float ks = material.specular_reflection;
-	float R = ks;
+	float R = real_R * ks;
+	float real_T = 1.0f - real_R;
+	float T = real_T * ks;
+	float Absorb = 1.0f - T - R;
+	
 
 	//APPLY LOCAL ILLUMINATION
 	for (Light & light : lights)
@@ -549,8 +593,8 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
 
 	}
 
-	color += material.diffuse_color * ID + R * IS;
-	
+	color += material.diffuse_color * ID + ks * IS;
+	color *= Absorb;
 	//Use attenuation
 	vec3 att = { 1.0f,1.0f,1.0f };
 
@@ -563,7 +607,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
 
 	if (R > 0.0f)
 	{
-		vec3 reflected_dir = glm::normalize(glm::reflect(ray.dir, normal));
+		vec3 reflected_dir = glm::normalize(glm::reflect(glm::normalize(ray.dir), normal));
 
 		if (material.roughness > 0.0f)
 		{
@@ -572,7 +616,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
 			for (int i = 0; i < reflection_samples; i++)
 			{
 				Ray reflected_ray{ P, glm::normalize(reflected_dir + sample_sphere(material.roughness)) };
-				reflec_color += Intersect(reflected_ray, d - 1, air);
+				reflec_color += Intersect(reflected_ray, d - 1, transmitting);
 			}
 
 			reflec_color /= reflection_samples;
@@ -581,38 +625,30 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const Material & incident )
 		else
 		{
 
-			Ray reflected_ray{ P, reflected_dir };
-			vec3 temp1 = color;
-			vec3 temp3 = Intersect(reflected_ray, d - 1, air);
-			vec3 temp2 = (R * temp3);
-			color = (color + temp2);
-			color *= 1.0f - R;
+			Ray reflected_ray{ data.PI + normal * epsilon, reflected_dir };
+			color = (color + R * Intersect(reflected_ray, d - 1, transmitting));
+			
 
 		}
 	}
 
 	//Transmission coefficient of object at P
 	//TODO
-	float T = 1.0f - real_R;
-	T *= ks;
+
+	
 	//T = 0;
 	if (T > 0.0f)
 	{
-		//TODO
-	//	float radicand = 1.0f - glm::pow(n_i / n_t, 2) * (1.0f - glm::pow(glm::dot(ray.dir, normal), 2));
-	//	if (radicand > 0.0f)
-	//	{
-			vec3 transmitted_dir = glm::normalize(glm::refract(-ray.dir, normal, n_i / n_t));
-			Ray transmitted_ray{ P, transmitted_dir };
-			color = (color + T * Intersect(transmitted_ray, d - 1, material));
-	//	}
+		vec3 transmitted_dir = glm::refract(glm::normalize(ray.dir), normal, n_ratio);
+		Ray transmitted_ray{ data.PI - normal * epsilon, transmitted_dir };
+		color = (color + T * Intersect(transmitted_ray, d - 1, !transmitting));
 
 	}
 	
+	//Absorb
 
 	return color;
 
-	//Absorb
 
 
 }
@@ -637,7 +673,7 @@ void Scene::GenerateRays()
 			vec3 P = camera.center + static_cast<float>((j - halfWidth + 0.5f) / halfWidth) * camera.right - static_cast<float>((i - halfHeigth + 0.5f) / halfHeigth) * camera.up;
 			Ray ray{ start,glm::normalize(P - start) };
 			rays.push_back(ray);
-			intersection_data[i * width + j] = Intersect(ray,max_depth,air);
+			intersection_data[i * width + j] = Intersect(ray,max_depth,false);
 
 		}
 }
@@ -666,7 +702,7 @@ void Scene::GenerateRaysRange(int begin, int end)
 			case AntiAliasing::NONE:
 			{
 				Ray ray{ start,glm::normalize(P - start) };
-				intersection_data[i * width + j] = glm::clamp(Intersect(ray, max_depth, air), vec3(0), vec3(1));
+				intersection_data[i * width + j] = glm::clamp(Intersect(ray, max_depth, false), vec3(0), vec3(1));
 				break;
 			}
 			case AntiAliasing::SUPER:
@@ -681,7 +717,7 @@ void Scene::GenerateRaysRange(int begin, int end)
 					for (float r = 0; r < glm::sqrt(AA_samples); r++)
 					{
 						Ray ray{ start,glm::normalize(P + delta_right * r + delta_down * d - start) };
-						color += glm::clamp(Intersect(ray, max_depth, air), vec3(0), vec3(1));
+						color += glm::clamp(Intersect(ray, max_depth, false), vec3(0), vec3(1));
 					}
 				color /= AA_samples;
 				intersection_data[i * width + j] = color;
@@ -705,7 +741,7 @@ void Scene::GenerateRaysRange(int begin, int end)
 				for (int k = 0; k < 4; k++)
 				{
 					Ray ray{ start, glm::normalize(corners[k] - start) };
-					colors[k] = glm::clamp(Intersect(ray, max_depth, air), vec3(0), vec3(1));
+					colors[k] = glm::clamp(Intersect(ray, max_depth, false), vec3(0), vec3(1));
 				}
 
 				colors[4] = colors[0];
@@ -784,7 +820,7 @@ vec3 Scene::AdpativeASubdivision(vec3 start, vec3 P, vec3 delta_right, vec3 delt
 	for (int k = 0; k < 4; k++)
 	{
 		Ray ray{ start, glm::normalize(corners[k] - start) };
-		colors[k] = glm::clamp(Intersect(ray, max_depth, air), vec3(0), vec3(1));
+		colors[k] = glm::clamp(Intersect(ray, max_depth, false), vec3(0), vec3(1));
 	}
 
 	colors[4] = colors[0];

@@ -66,6 +66,7 @@ struct Sphere : public Base
 	Sphere() = default;
 	Sphere(const vec3& center, const float & radius, const Material& mat);
 	float intersection(const Ray & ray);
+	IntersectionData intersection_data(const Ray & ray);
 	vec3 normal_at_intersection(const Ray & ray, float t);
 };
 
@@ -102,6 +103,7 @@ struct Box : public Base
 	Box(const vec3 & position, const vec3 & width, const vec3 & heigth,
 		const vec3 & length, const Material& mat);
 	float intersection(const Ray & ray);
+	IntersectionData intersection_data(const Ray & ray);
 	vec3 normal_at_intersection(const Ray & ray, float t);
 };
 

@@ -31,7 +31,7 @@ public:
 	Scene() = default;
 	Scene(const std::string & filepath, int width, int height, std::string output_name = "Out.png");
 	void Setup();
-	vec3 Intersect(const Ray & ray, const int&d, const Material & incident);
+	vec3 Intersect(const Ray & ray, const int&d, const bool& transmitting);
 	void GenerateRays();
 	void GenerateRaysRange(int begin, int end);
 	void GenerateImage();
@@ -90,7 +90,7 @@ public:
 	AntiAliasing AA_method = AntiAliasing::NONE;
 	int AA_samples = 4;
 	int adaptive_AA_recursion = 4;
-	float  adaptive_AA_tolerance = 0.1f;
+	float adaptive_AA_tolerance = 0.05f;
 
 	
 };

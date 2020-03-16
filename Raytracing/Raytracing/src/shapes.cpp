@@ -41,6 +41,16 @@ float Sphere::intersection(const Ray & ray)
 {
 	return intersection_ray_sphere(ray,*this);
 }
+IntersectionData Sphere::intersection_data(const Ray & ray)
+{
+	IntersectionData data;
+	data.t = intersection_ray_sphere(ray, *this);
+	data.PI = ray.start + ray.dir * data.t;
+	data.normal = glm::normalize(data.PI - this->center);
+
+	return data;
+
+}
 /***********************************************
 
 	Get normal at the intersection
@@ -102,6 +112,22 @@ Box::Box(const vec3 & position, const vec3 & length, const vec3 & width,
 float Box::intersection(const Ray & ray)
 {
 	return intersection_ray_box(ray, *this);
+}
+IntersectionData Box::intersection_data(const Ray & ray)
+{
+	IntersectionData data;
+	data.t = intersection_ray_box(ray, *this);
+	data.PI = ray.start + ray.dir * data.t;
+
+	for (int i = 0; i < 6; i++)
+	{
+
+		if (std::abs(glm::dot(data.PI - planes[i].point, planes[i].normal)) < cEpsilon)
+		{
+			data.normal = planes[i].normal;
+			return data;
+		}
+	}
 }
 /***********************************************
 
