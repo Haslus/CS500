@@ -133,7 +133,7 @@ struct Mesh : public Base
 
 	Mesh() = default;
 	Mesh(const vec3& pos,const vec3& euler, const float& scale, const std::vector<vec3>& vertices,
-		const std::vector<vec3>& faces,const std::vector<vec3>& normals, const std::vector<vec3>& idx_normals ,const Material & mat);
+		const std::vector<vec3>& faces,const Material & mat);
 	float intersection(const Ray & ray);
 	IntersectionData intersection_data(const Ray & ray);
 	vec3 normal_at_intersection(const Ray & ray, float t);

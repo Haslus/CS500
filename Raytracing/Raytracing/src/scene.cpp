@@ -169,7 +169,7 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 					std::cout << "Invalid path." << std::endl;
 					std::abort();
 				}
-				std::vector<vec3> vertices, indices,normals, normal_indices;
+				std::vector<vec3> vertices, indices;
 				while (std::getline(mesh_file, mesh_line))
 				{
 					//Ignore if it starts with #
@@ -190,20 +190,6 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 						vertices.push_back(vertex);
 					}
 
-					//Extract normal
-					else if (mesh_line[0] == 'v' && mesh_line[1] == 'n')
-					{
-						mesh_line = mesh_line.substr(3);
-						std::string vx = mesh_line.substr(0, mesh_line.find_first_of(' '));
-						mesh_line = mesh_line.substr(mesh_line.find_first_of(' ') + 1);
-						std::string vy = mesh_line.substr(0, mesh_line.find_first_of(' '));
-						mesh_line = mesh_line.substr(mesh_line.find_first_of(' ') + 1);
-						std::string vz = mesh_line;
-
-						vec3 normal{ std::stof(vx),std::stof(vy), std::stof(vz) };
-						normals.push_back(normal);
-					}
-
 					//Extract face
 					else if (mesh_line[0] == 'f')
 					{
@@ -219,7 +205,7 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 						vec3 face_3 = extract_face(text_face_3);
 
 						indices.push_back(vec3{ face_1.x - 1,face_2.x - 1, face_3.x  - 1});
-						normal_indices.push_back(vec3{ face_1.z - 1,face_2.z - 1, face_3.z - 1 });
+					
 					}
 
 				}
@@ -234,7 +220,7 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 				std::getline(file, line);
 
 				Mesh * mesh = new Mesh(extract_vec3(text_pos),extract_vec3(text_angle),std::stof(text_scale),
-					vertices,indices, normals, normal_indices,parse_material(&line));
+					vertices,indices,parse_material(&line));
 
 
 				objects.push_back(mesh);
@@ -312,29 +298,38 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 			if (line[0] == '#')
 				continue;
 
-			if (line.find("HARD_SHADOWS") != std::string::npos)
+			if (line.find("SHADOWS") != std::string::npos)
 			{
-				if (line.find("true") != std::string::npos)
+				if (line.find("HARD") != std::string::npos)
 				{
-					useHS = true;
+					S_method = Shadows::HARD;
+				}
+				else if (line.find("SOFT") != std::string::npos)
+				{
+					S_method = Shadows::SOFT;
 				}
 				else
 				{
-					useHS = false;
+					S_method = Shadows::NONE;
 				}
 			}
 
-			if (line.find("SOFT_SHADOWS") != std::string::npos)
+			if (line.find("AA_METHOD") != std::string::npos)
 			{
-				if (line.find("true") != std::string::npos)
+				if (line.find("SUPER") != std::string::npos)
 				{
-					useSS = true;
+					AA_method = AntiAliasing::SUPER;
+				}
+				else if (line.find("ADAPTIVE") != std::string::npos)
+				{
+					AA_method = AntiAliasing::ADAPTIVE;
 				}
 				else
 				{
-					useSS = false;
+					AA_method = AntiAliasing::NONE;
 				}
 			}
+
 
 			if (line.find("EPSILON") != std::string::npos)
 			{
@@ -377,6 +372,30 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 					use_attenuation = false;
 				}
 			}
+
+			if (line.find("AA_SAMPLES") != std::string::npos)
+			{
+				std::string AA_samples = line.substr(line.find('=') + 1);
+				this->AA_samples = std::stoi(AA_samples);
+			}
+
+			if (line.find("ADAPTIVE_DEPTH") != std::string::npos)
+			{
+				std::string A_max_depth = line.substr(line.find('=') + 1);
+				this->adaptive_AA_recursion = std::stoi(A_max_depth);
+			}
+
+			if (line.find("PREVIEW") != std::string::npos)
+			{
+				if (line.find("true") != std::string::npos)
+				{
+					preview = true;
+				}
+				else
+				{
+					preview = false;
+				}
+			}
 		}
 
 		file.close();
@@ -398,7 +417,7 @@ void Scene::Setup()
 	Throw a Ray
 
 ************************************************/
-vec3 Scene::Intersect(const Ray & ray, const int& d, const bool& transmitting)
+vec3 Scene::Raycast(const Ray & ray, const int& d, const bool& transmitting)
 {
 	//MAX DEPTH REACHED
 	if (d == 0)
@@ -433,6 +452,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const bool& transmitting)
 	Material incident, transmit;
 	Material material = objects[index]->mat;
 
+	//Switch material depending on enter/exit
 	if (transmitting == false)
 	{
 		incident = air;
@@ -447,11 +467,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const bool& transmitting)
 	vec3 normal = data.normal;
 	vec3 color = global_ambient * material.diffuse_color;
 
-	//DEBUG
-	//if (glm::dot(data.normal, ray.dir) > 0.f)
-	//	return vec3{ 1,1,0 };
-	//else
-	//	return data.normal;
+	//Inverse normal if exiting object
 	if (glm::dot(ray.dir, normal) > 0.0f)
 	{
 		normal = -normal;
@@ -467,7 +483,6 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const bool& transmitting)
 	float n_i = glm::sqrt(incident.electric_perimittivity * incident.magnetic_permeability);
 	float n_t = glm::sqrt(transmit.electric_perimittivity * transmit.magnetic_permeability); //Index of refraction of object at P
 
-	//TODO
 	//Reflection coefficient
 	float n_ratio = (n_i / n_t);
 	float real_R;
@@ -477,8 +492,6 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const bool& transmitting)
 	}
 	else
 	{
-
-		
 		
 		float cos_I = -glm::dot(glm::normalize(ray.dir), normal);
 
@@ -508,7 +521,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const bool& transmitting)
 	}
 
 	
-	//Specular reflection coefficient of object
+	//Calculate coefficients
 	float ks = material.specular_reflection;
 	float R = real_R * ks;
 	float real_T = 1.0f - real_R;
@@ -523,7 +536,8 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const bool& transmitting)
 		vec3 lightDir = glm::normalize(light.position - P);
 
 		float shadow_factor = 1;
-		if (useHS)
+
+		if (S_method == Shadows::HARD)
 		{
 			//Calculate Hard Shadow
 			Ray temp_ray{ P, lightDir };
@@ -549,7 +563,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const bool& transmitting)
 
 		}
 
-		else if (useSS)
+		else if (S_method == Shadows::SOFT)
 		{
 			//Calculate Soft Shadows
 			shadow_factor = 0;
@@ -580,9 +594,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const bool& transmitting)
 			shadow_factor = 1.0f - static_cast<float>(shadow_factor / shadowsamples);
 
 		}
-
-
-
+		
 		//Calculate Diffuse factor
 		ID += glm::max(glm::dot(normal, lightDir), 0.0f) * light.color * shadow_factor;
 
@@ -595,14 +607,15 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const bool& transmitting)
 
 	color += material.diffuse_color * ID + ks * IS;
 	color *= Absorb;
+
 	//Use attenuation
 	vec3 att = { 1.0f,1.0f,1.0f };
 
 	if (use_attenuation)
 	{
-		att.x = glm::pow(air_attenuation.x, glm::length(ray.start - P));
-		att.y = glm::pow(air_attenuation.y, glm::length(ray.start - P));
-		att.z = glm::pow(air_attenuation.z, glm::length(ray.start - P));
+		att.x = glm::pow(incident.attenuation.x, glm::length(ray.start - P));
+		att.y = glm::pow(incident.attenuation.y, glm::length(ray.start - P));
+		att.z = glm::pow(incident.attenuation.z, glm::length(ray.start - P));
 	}
 
 	if (R > 0.0f)
@@ -616,7 +629,7 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const bool& transmitting)
 			for (int i = 0; i < reflection_samples; i++)
 			{
 				Ray reflected_ray{ P, glm::normalize(reflected_dir + sample_sphere(material.roughness)) };
-				reflec_color += Intersect(reflected_ray, d - 1, transmitting);
+				reflec_color += Raycast(reflected_ray, d - 1, transmitting);
 			}
 
 			reflec_color /= reflection_samples;
@@ -626,28 +639,24 @@ vec3 Scene::Intersect(const Ray & ray, const int& d, const bool& transmitting)
 		{
 
 			Ray reflected_ray{ data.PI + normal * epsilon, reflected_dir };
-			color = (color + R * Intersect(reflected_ray, d - 1, transmitting));
+			color = (color + R * Raycast(reflected_ray, d - 1, transmitting));
 			
 
 		}
 	}
 
-	//Transmission coefficient of object at P
-	//TODO
-
-	
-	//T = 0;
+	//Transmission/Refraction
 	if (T > 0.0f)
 	{
 		vec3 transmitted_dir = glm::refract(glm::normalize(ray.dir), normal, n_ratio);
 		Ray transmitted_ray{ data.PI - normal * epsilon, transmitted_dir };
-		color = (color + T * Intersect(transmitted_ray, d - 1, !transmitting));
+		color = (color + T * Raycast(transmitted_ray, d - 1, !transmitting));
 
 	}
 	
 	//Absorb
 
-	return color;
+	return att * color;
 
 
 
@@ -673,7 +682,7 @@ void Scene::GenerateRays()
 			vec3 P = camera.center + static_cast<float>((j - halfWidth + 0.5f) / halfWidth) * camera.right - static_cast<float>((i - halfHeigth + 0.5f) / halfHeigth) * camera.up;
 			Ray ray{ start,glm::normalize(P - start) };
 			rays.push_back(ray);
-			intersection_data[i * width + j] = Intersect(ray,max_depth,false);
+			intersection_data[i * width + j] = Raycast(ray,max_depth,false);
 
 		}
 }
@@ -702,33 +711,53 @@ void Scene::GenerateRaysRange(int begin, int end)
 			case AntiAliasing::NONE:
 			{
 				Ray ray{ start,glm::normalize(P - start) };
-				intersection_data[i * width + j] = glm::clamp(Intersect(ray, max_depth, false), vec3(0), vec3(1));
+				intersection_data[i * width + j] = glm::clamp(Raycast(ray, max_depth, false), vec3(0), vec3(1));
 				break;
 			}
 			case AntiAliasing::SUPER:
 			{
-				vec3 delta_right = static_cast<float>((j + 1 - halfWidth + 0.5f) / halfWidth) * camera.right;
-				delta_right /= AA_samples;
-				vec3 delta_down = -static_cast<float>((i + 1 - halfHeigth + 0.5f) / halfHeigth) * camera.up;
-				delta_down /= AA_samples;
+				int size = glm::sqrt(AA_samples);
 
-				vec3 color;
-				for (float d = 0; d < glm::sqrt(AA_samples); d++)
-					for (float r = 0; r < glm::sqrt(AA_samples); r++)
+				vec3 right_P = camera.center + static_cast<float>((j + 1- halfWidth + 0.5f) / halfWidth) * camera.right - static_cast<float>((i - halfHeigth + 0.5f) / halfHeigth) * camera.up;
+				vec3 delta_right = right_P - P;
+				delta_right /= size;
+				vec3 down_P = camera.center + static_cast<float>((j - halfWidth + 0.5f) / halfWidth) * camera.right - static_cast<float>((i + 1 - halfHeigth + 0.5f) / halfHeigth) * camera.up;
+				vec3 delta_down = down_P - P;
+				delta_down /= size;
+
+				vec3 color = vec3(0);
+				bool odd_size = size % 2 == 0 ? false : true;
+
+				size /= 2;
+
+				for (float d = -size; d <= size; d++)
+				{
+					if (!odd_size && d == 0)
+						continue;
+
+					for (float r = -size; r <= size; r++)
 					{
+						if (!odd_size && r == 0)
+							continue;
+
 						Ray ray{ start,glm::normalize(P + delta_right * r + delta_down * d - start) };
-						color += glm::clamp(Intersect(ray, max_depth, false), vec3(0), vec3(1));
+						color += glm::clamp(Raycast(ray, max_depth, false), vec3(0), vec3(1));
 					}
+				}
+
 				color /= AA_samples;
 				intersection_data[i * width + j] = color;
 				break;
 			}
 			case AntiAliasing::ADAPTIVE:
 			{
-				//Get the four corners
-				vec3 delta_right = static_cast<float>((j + 1 - halfWidth + 0.5f) / halfWidth) * camera.right;
+				//int size = glm::sqrt(AA_samples);
+
+				vec3 right_P = camera.center + static_cast<float>((j + 1 - halfWidth + 0.5f) / halfWidth) * camera.right - static_cast<float>((i - halfHeigth + 0.5f) / halfHeigth) * camera.up;
+				vec3 delta_right = right_P - P;
 				delta_right /= 2;
-				vec3 delta_down = -static_cast<float>((i + 1 - halfHeigth + 0.5f) / halfHeigth) * camera.up;
+				vec3 down_P = camera.center + static_cast<float>((j - halfWidth + 0.5f) / halfWidth) * camera.right - static_cast<float>((i + 1 - halfHeigth + 0.5f) / halfHeigth) * camera.up;
+				vec3 delta_down = down_P - P;
 				delta_down /= 2;
 
 				vec3 left_top = P - delta_right - delta_down;
@@ -741,7 +770,7 @@ void Scene::GenerateRaysRange(int begin, int end)
 				for (int k = 0; k < 4; k++)
 				{
 					Ray ray{ start, glm::normalize(corners[k] - start) };
-					colors[k] = glm::clamp(Intersect(ray, max_depth, false), vec3(0), vec3(1));
+					colors[k] = glm::clamp(Raycast(ray, max_depth, false), vec3(0), vec3(1));
 				}
 
 				colors[4] = colors[0];
@@ -820,7 +849,7 @@ vec3 Scene::AdpativeASubdivision(vec3 start, vec3 P, vec3 delta_right, vec3 delt
 	for (int k = 0; k < 4; k++)
 	{
 		Ray ray{ start, glm::normalize(corners[k] - start) };
-		colors[k] = glm::clamp(Intersect(ray, max_depth, false), vec3(0), vec3(1));
+		colors[k] = glm::clamp(Raycast(ray, max_depth, false), vec3(0), vec3(1));
 	}
 
 	colors[4] = colors[0];
@@ -838,7 +867,7 @@ vec3 Scene::AdpativeASubdivision(vec3 start, vec3 P, vec3 delta_right, vec3 delt
 
 	}
 
-	if (tolerated)
+	if (tolerated || recursion == 0)
 	{
 		vec3 final_color = colors[0] + colors[1] + colors[2] + colors[3];
 		final_color /= 4.0f;
@@ -847,10 +876,10 @@ vec3 Scene::AdpativeASubdivision(vec3 start, vec3 P, vec3 delta_right, vec3 delt
 	//Need to subdivide
 	else
 	{
-		vec3 left_top_color = AdpativeASubdivision(start,left_top, delta_right / 2.0f, delta_down / 2.0f, adaptive_AA_recursion - 1);
-		vec3 right_top_color = AdpativeASubdivision(start,left_top + delta_right / 2.0f, delta_right / 2.0f, delta_down / 2.0f, adaptive_AA_recursion - 1);
-		vec3 left_bot_color = AdpativeASubdivision(start,left_top + delta_down / 2.0f, delta_right / 2.0f, delta_down / 2.0f, adaptive_AA_recursion - 1);
-		vec3 right_bot_color = AdpativeASubdivision(start,left_top + delta_right / 2.0f + delta_down / 2.0f, delta_right / 2.0f, delta_down / 2.0f, adaptive_AA_recursion - 1);
+		vec3 left_top_color = AdpativeASubdivision(start,left_top, delta_right / 2.0f, delta_down / 2.0f, recursion - 1);
+		vec3 right_top_color = AdpativeASubdivision(start,left_top + delta_right / 2.0f, delta_right / 2.0f, delta_down / 2.0f, recursion - 1);
+		vec3 left_bot_color = AdpativeASubdivision(start,left_top + delta_down / 2.0f, delta_right / 2.0f, delta_down / 2.0f, recursion - 1);
+		vec3 right_bot_color = AdpativeASubdivision(start,left_top + delta_right / 2.0f + delta_down / 2.0f, delta_right / 2.0f, delta_down / 2.0f, recursion - 1);
 
 		vec3 final_color = left_top_color + right_top_color + left_bot_color + right_bot_color;
 		final_color /= 4.0f;
@@ -871,40 +900,60 @@ void Scene::InitializeWindow()
 	if (!glfwInit())
 		throw std::invalid_argument("GLFW NOT INITIALIZED");
 
-	/* Create a windowed mode window and its OpenGL context */
-	window = glfwCreateWindow(width, height, "RAYTRACER", NULL, NULL);
-	if (!window)
-	{
-		glfwTerminate();
-		throw std::invalid_argument("WINDOW NOT CREATED");
-	}
-
-	/* Make the window's context current */
-	glfwMakeContextCurrent(window);
-	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-	glfwSwapInterval(1);
-
-	renderShader = Shader{ "shaders/normal.vert","shaders/normal.frag" };
 
 	//Generate Rays if needed
-	int division = width / threads;
-
-	for (int i = 0; i < threads; i++)
+	if (preview)
 	{
-		if (i == threads - 1)
+		/* Create a windowed mode window and its OpenGL context */
+		window = glfwCreateWindow(width, height, "RAYTRACER", NULL, NULL);
+		if (!window)
 		{
-			std::thread ray1(&Scene::GenerateRaysRange, this, division * i, width);
-			ray1.detach();
+			glfwTerminate();
+			throw std::invalid_argument("WINDOW NOT CREATED");
 		}
-		else
+
+		int division = width / threads;
+
+		for (int i = 0; i < threads; i++)
 		{
-			std::thread ray1(&Scene::GenerateRaysRange,this, division * i, division * (i + 1));
-			ray1.detach();
+			if (i == threads - 1)
+			{
+				std::thread ray1(&Scene::GenerateRaysRange, this, division * i, width);
+				ray1.detach();
+			}
+			else
+			{
+				std::thread ray1(&Scene::GenerateRaysRange,this, division * i, division * (i + 1));
+				ray1.detach();
+			}
+		}
+
+	
+		/* Make the window's context current */
+		glfwMakeContextCurrent(window);
+		gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+		glfwSwapInterval(1);
+
+		renderShader = Shader{ "shaders/normal.vert","shaders/normal.frag" };
+	}
+	else
+	{
+		int division = width / threads;
+
+		for (int i = 0; i < threads; i++)
+		{
+			if (i == threads - 1)
+			{
+				std::thread ray1(&Scene::GenerateRaysRange, this, division * i, width);
+				ray1.join();
+			}
+			else
+			{
+				std::thread ray1(&Scene::GenerateRaysRange, this, division * i, division * (i + 1));
+				ray1.join();
+			}
 		}
 	}
-
-
-
 	
 
 }
@@ -916,29 +965,39 @@ void Scene::InitializeWindow()
 ************************************************/
 void Scene::UpdateWindow()
 {
-	/* Loop until the user closes the window */
-	while (!glfwWindowShouldClose(window))
+	if (preview)
 	{
-		/* Render here */
-		glClearColor(0.20f, 0.20f, 0.20f, 1.0f);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		//glClear(GL_COLOR_BUFFER_BIT);
+		/* Loop until the user closes the window */
+		while (!glfwWindowShouldClose(window))
+		{
+			/* Render here */
+			glClearColor(0.20f, 0.20f, 0.20f, 1.0f);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			//glClear(GL_COLOR_BUFFER_BIT);
 
-		//Store new data in the texture
-		UpdateTexture();
-		//Render it
-		renderShader.Use();
-		RenderQuad();
-		/* Swap front and back buffers */
-		glfwSwapBuffers(window);
+			//Store new data in the texture
+			UpdateTexture();
+			//Render it
+			renderShader.Use();
+			RenderQuad();
+			/* Swap front and back buffers */
+			glfwSwapBuffers(window);
 
-		/* Poll for and process events */
-		glfwPollEvents();
+			/* Poll for and process events */
+			glfwPollEvents();
+		}
+		//Generate Image when window is closed
+		std::cout << "Saving Image into " << output_name << ".png" << std::endl;
+		GenerateImage();
 	}
-	//Generate Image when window is closed
-	std::cout << "Saving Image into " << output_name << ".png" << std::endl;
-	GenerateImage();
+	else
+	{
+		//Generate Image when window is closed
+		std::cout << "Saving Image into " << output_name << ".png" << std::endl;
+		GenerateImage();
+	}
+	
 }
 /***********************************************
 

@@ -41,6 +41,11 @@ float Sphere::intersection(const Ray & ray)
 {
 	return intersection_ray_sphere(ray,*this);
 }
+/***********************************************
+
+	Intersect with more data
+
+************************************************/
 IntersectionData Sphere::intersection_data(const Ray & ray)
 {
 	IntersectionData data;
@@ -113,6 +118,11 @@ float Box::intersection(const Ray & ray)
 {
 	return intersection_ray_box(ray, *this);
 }
+/***********************************************
+
+	Intersect with more data
+
+************************************************/
 IntersectionData Box::intersection_data(const Ray & ray)
 {
 	IntersectionData data;
@@ -205,6 +215,11 @@ SimplePolygon::SimplePolygon(const std::vector<vec3>& vertices, const Material &
 		triangles.push_back(Triangle{ this->vertices[0],this->vertices[i + 1], this->vertices[i + 2] });
 	}
 }
+/***********************************************
+
+	Custom Constructor for Mesh
+
+************************************************/
 SimplePolygon::SimplePolygon(const std::vector<vec3>& vertices, const std::vector<vec3>& indices,const Material & mat)
 {
 	this->vertices = vertices;
@@ -218,21 +233,6 @@ SimplePolygon::SimplePolygon(const std::vector<vec3>& vertices, const std::vecto
 
 	}
 }
-SimplePolygon::SimplePolygon(const std::vector<vec3>& vertices, const std::vector<vec3>& indices, const std::vector<vec3>& normals, 
-	const std::vector<vec3>& idx_normals, const Material & mat)
-{
-	this->vertices = vertices;
-	this->mat = mat;
-	this->number_of_vertices = vertices.size();
-
-
-	for (int i = 0; i < indices.size(); i++)
-	{
-		Triangle tri = Triangle(this->vertices[indices[i][0]],this->vertices[indices[i][1]], this->vertices[indices[i][2]]);
-
-		triangles.push_back(tri);
-	}
-}
 /***********************************************
 
 	Intersect
@@ -242,6 +242,11 @@ float SimplePolygon::intersection(const Ray & ray)
 {
 	return intersection_ray_polygon(ray, *this);
 }
+/***********************************************
+
+	Intersect with more data
+
+************************************************/
 IntersectionData SimplePolygon::intersection_data(const Ray & ray)
 {
 	return intersection_ray_polygon_data(ray, *this);
@@ -285,6 +290,11 @@ float Ellipsoid::intersection(const Ray & ray)
 {
 	return intersection_ray_ellipsoid(ray, *this);
 }
+/***********************************************
+
+	Intersect with more data
+
+************************************************/
 IntersectionData Ellipsoid::intersection_data(const Ray & ray)
 {
 	IntersectionData data;
@@ -348,9 +358,13 @@ vec3 sample_sphere(const float & r)
 
 	return randP * c * r;
 }
+/***********************************************
 
+	Custom Constructor
+
+************************************************/
 Mesh::Mesh(const vec3& pos, const vec3& euler, const float& scale, const std::vector<vec3>& vertices,
-	const std::vector<vec3>& faces, const std::vector<vec3>& normals, const std::vector<vec3>& idx_normals, const Material & mat)
+	const std::vector<vec3>& faces, const Material & mat)
 {
 	position = pos;
 	euler_angles = euler;
@@ -372,17 +386,29 @@ Mesh::Mesh(const vec3& pos, const vec3& euler, const float& scale, const std::ve
 
 	poly = SimplePolygon(transformed_verts,faces,mat );
 }
+/***********************************************
 
+	Intersect
+
+************************************************/
 float Mesh::intersection(const Ray & ray)
 {
 	return poly.intersection(ray);
 }
+/***********************************************
 
+	Intersect with more data
+
+************************************************/
 IntersectionData Mesh::intersection_data(const Ray & ray)
 {
 	return poly.intersection_data(ray);
 }
+/***********************************************
 
+	Get normal at point of intersection
+
+************************************************/
 vec3 Mesh::normal_at_intersection(const Ray & ray, float t)
 {
 	return poly.normal_at_intersection(ray, t);

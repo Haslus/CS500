@@ -106,6 +106,11 @@ float intersection_ray_polygon(const Ray & ray, const SimplePolygon & poly)
 	}
 	return-1.0f;
 }
+/***********************************************
+
+	Intersection between ray and polygon with more data
+
+************************************************/
 IntersectionData intersection_ray_polygon_data(const Ray & ray, const SimplePolygon & poly)
 {
 	//Check each triangle
@@ -152,6 +157,11 @@ float intersection_ray_triangle(const Ray & ray, const Triangle & tri)
 		return -1.0f;
 	}
 }
+/***********************************************
+
+	Intersection between ray and triangle with more data
+
+************************************************/
 IntersectionData intersection_ray_triangle_data(const Ray & ray, const Triangle & tri)
 {
 	float dtop = glm::dot((ray.start - tri.plane.point), tri.plane.normal);

@@ -20,6 +20,11 @@ Box parse_box(const std::string * lines);
 Light parse_light(const std::string * lines);
 Material parse_material(const std::string * lines);
 
+enum class Shadows
+{
+	NONE, HARD, SOFT
+};
+
 enum class AntiAliasing
 {
 	NONE, SUPER, ADAPTIVE
@@ -31,7 +36,7 @@ public:
 	Scene() = default;
 	Scene(const std::string & filepath, int width, int height, std::string output_name = "Out.png");
 	void Setup();
-	vec3 Intersect(const Ray & ray, const int&d, const bool& transmitting);
+	vec3 Raycast(const Ray & ray, const int&d, const bool& transmitting);
 	void GenerateRays();
 	void GenerateRaysRange(int begin, int end);
 	void GenerateImage();
@@ -51,6 +56,8 @@ public:
 	unsigned int quadVAO = -1;
 
 	Shader renderShader;
+
+	bool preview = true;
 	//
 
 	std::vector<Base*> objects;
@@ -71,9 +78,10 @@ public:
 	std::vector<vec3> intersection_data;
 
 	float epsilon;
+
+	//Shadows
+	Shadows S_method;
 	int shadowsamples;
-	bool useHS;
-	bool useSS;
 
 	//Reflection
 	int max_depth;
