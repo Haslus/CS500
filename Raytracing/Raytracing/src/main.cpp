@@ -14,7 +14,7 @@ Creation date:1/8/2020
 int main(int argc, char *argv[])
 {
 	Scene scene;
-
+	/*
 	if (argc == 1)
 	{
 		std::cout << "No argument, using default size (500 x 500)." << std::endl;
@@ -39,6 +39,7 @@ int main(int argc, char *argv[])
 	{
 		scene = { argv[3],std::stoi(argv[1]) ,std::stoi(argv[2]), argv[4] };
 	}
+	*/
 	std::cout << "Generating Image of size " << scene.width << "x" << scene.height << " from " << scene.input_name << std::endl;
 	scene.Setup();
 	scene.InitializeWindow();

@@ -11,6 +11,7 @@ Creation date: 1/8/2020
 
 #include "scene.h"
 #include "collision.h"
+
 #include <iostream>
 #include <fstream>
 #include <thread>
@@ -18,10 +19,20 @@ Creation date: 1/8/2020
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+vec2 offset;
+
 static void error_callback(int error, const char* description)
 {
 	fprintf(stderr, "Error: %s\n", description);
 }
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	(void*)window;
+	offset = { xoffset,yoffset };
+}
+
+bool updateShader = false;
 
 
 /***********************************************
@@ -251,25 +262,25 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 				air_attenuation = extract_vec3(text_att);
 			}
 
-			if (line.find("CAMERA") != std::string::npos)
-			{
-				std::string text_center = line.substr(line.find('(') + 1, line.find(')') - line.find('(') - 1);
-				line = line.substr(line.find(')') + 1);
-				std::string text_right = line.substr(2, line.find(')') - 2);
-				line = line.substr(line.find(')') + 1);
-				std::string text_up = line.substr(2, line.find(')') - 2);
-				line = line.substr(line.find(')') + 1);
-				std::string text_eye = line.substr(0);
-
-				camera.center = extract_vec3(text_center);
-				camera.up = extract_vec3(text_up);
-				camera.right = extract_vec3(text_right);
-				camera.eye = std::stof(text_eye);
-
-
-
-
-			}
+			//if (line.find("CAMERA") != std::string::npos)
+			//{
+			//	std::string text_center = line.substr(line.find('(') + 1, line.find(')') - line.find('(') - 1);
+			//	line = line.substr(line.find(')') + 1);
+			//	std::string text_right = line.substr(2, line.find(')') - 2);
+			//	line = line.substr(line.find(')') + 1);
+			//	std::string text_up = line.substr(2, line.find(')') - 2);
+			//	line = line.substr(line.find(')') + 1);
+			//	std::string text_eye = line.substr(0);
+			//
+			//	camera.center = extract_vec3(text_center);
+			//	camera.up = extract_vec3(text_up);
+			//	camera.right = extract_vec3(text_right);
+			//	camera.eye = std::stof(text_eye);
+			//
+			//
+			//
+			//
+			//}
 
 
 		}
@@ -411,6 +422,12 @@ Scene::Scene(const std::string & filepath, int width, int height, std::string ou
 void Scene::Setup()
 {
 	intersection_data = std::vector<vec3>(width * height, vec3{ 1,0,0 });
+
+	Light l;
+	l.position = vec3(4, 2, -4);
+	l.color = vec3(0.6);
+	l.radius = 0.1;
+	lights.push_back(l);
 }
 /***********************************************
 
@@ -668,7 +685,7 @@ vec3 Scene::Raycast(const Ray & ray, const int& d, const bool& transmitting)
 ************************************************/
 void Scene::GenerateRays()
 {
-	
+#ifdef RAYCASTING
 	vec3 forward = glm::normalize(glm::cross(camera.up, camera.right));
 	vec3 start = camera.center - forward * camera.eye;
 
@@ -682,9 +699,12 @@ void Scene::GenerateRays()
 			vec3 P = camera.center + static_cast<float>((j - halfWidth + 0.5f) / halfWidth) * camera.right - static_cast<float>((i - halfHeigth + 0.5f) / halfHeigth) * camera.up;
 			Ray ray{ start,glm::normalize(P - start) };
 			rays.push_back(ray);
-			intersection_data[i * width + j] = Raycast(ray,max_depth,false);
+			intersection_data[i * width + j] = Raycast(ray, max_depth, false);
 
 		}
+#endif // 
+
+	
 }
 /***********************************************
 
@@ -693,6 +713,7 @@ void Scene::GenerateRays()
 ************************************************/
 void Scene::GenerateRaysRange(int begin, int end)
 {
+#ifdef RAYCASTING
 	vec3 forward = glm::normalize(glm::cross(camera.up, camera.right));
 	vec3 start = camera.center - forward * camera.eye;
 
@@ -813,6 +834,7 @@ void Scene::GenerateRaysRange(int begin, int end)
 			
 
 		}
+#endif
 }
 
 /***********************************************
@@ -887,6 +909,31 @@ vec3 Scene::AdpativeASubdivision(vec3 start, vec3 P, vec3 delta_right, vec3 delt
 	}
 }
 
+void Scene::GenerateRaysCSG(int begin, int end)
+{
+#ifdef RAYCASTING
+
+
+
+	vec3 forward = glm::normalize(glm::cross(camera.up, camera.right));
+	vec3 start = camera.center - forward * camera.eye;
+
+	float halfWidth = static_cast<float>(width / 2);
+	float halfHeigth = static_cast<float>(height / 2);
+
+	//Generate rays
+	for (int i = begin; i < end; i++)
+		for (int j = 0; j < width; j++)
+		{
+			vec3 P = camera.center + static_cast<float>((j - halfWidth + 0.5f) / halfWidth) * camera.right - static_cast<float>((i - halfHeigth + 0.5f) / halfHeigth) * camera.up;
+			Ray ray{ start,glm::normalize(P - start) };
+			intersection_data[i * width + j] = glm::clamp(Raymarch(ray), vec3(0), vec3(1));
+
+		}
+
+#endif // RAYCASTING	
+}
+
 /***********************************************
 
 	Create Window
@@ -902,58 +949,40 @@ void Scene::InitializeWindow()
 
 
 	//Generate Rays if needed
-	if (preview)
+
+	/* Create a windowed mode window and its OpenGL context */
+	window = glfwCreateWindow(width, height, "RAYTRACER", NULL, NULL);
+	if (!window)
 	{
-		/* Create a windowed mode window and its OpenGL context */
-		window = glfwCreateWindow(width, height, "RAYTRACER", NULL, NULL);
-		if (!window)
-		{
-			glfwTerminate();
-			throw std::invalid_argument("WINDOW NOT CREATED");
-		}
+		glfwTerminate();
+		throw std::invalid_argument("WINDOW NOT CREATED");
+	}
 
-		int division = width / threads;
-
-		for (int i = 0; i < threads; i++)
-		{
-			if (i == threads - 1)
-			{
-				std::thread ray1(&Scene::GenerateRaysRange, this, division * i, width);
-				ray1.detach();
-			}
-			else
-			{
-				std::thread ray1(&Scene::GenerateRaysRange,this, division * i, division * (i + 1));
-				ray1.detach();
-			}
-		}
+	//int division = width / threads;
+	//
+	//for (int i = 0; i < threads; i++)
+	//{
+	//	if (i == threads - 1)
+	//	{
+	//		std::thread ray1(&Scene::GenerateRaysCSG, this, division * i, width);
+	//		ray1.detach();
+	//	}
+	//	else
+	//	{
+	//		std::thread ray1(&Scene::GenerateRaysCSG,this, division * i, division * (i + 1));
+	//		ray1.detach();
+	//	}
+	//}
 
 	
-		/* Make the window's context current */
-		glfwMakeContextCurrent(window);
-		gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-		glfwSwapInterval(1);
+	/* Make the window's context current */
+	glfwMakeContextCurrent(window);
+	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+	glfwSwapInterval(1);
 
-		renderShader = Shader{ "shaders/normal.vert","shaders/normal.frag" };
-	}
-	else
-	{
-		int division = width / threads;
+	renderShader = Shader{ "shaders/normal.vert","shaders/normal.frag" };
 
-		for (int i = 0; i < threads; i++)
-		{
-			if (i == threads - 1)
-			{
-				std::thread ray1(&Scene::GenerateRaysRange, this, division * i, width);
-				ray1.join();
-			}
-			else
-			{
-				std::thread ray1(&Scene::GenerateRaysRange, this, division * i, division * (i + 1));
-				ray1.join();
-			}
-		}
-	}
+	glfwSetScrollCallback(window, scroll_callback);
 	
 
 }
@@ -965,38 +994,46 @@ void Scene::InitializeWindow()
 ************************************************/
 void Scene::UpdateWindow()
 {
-	if (preview)
+	CSG::Setup();
+	
+	/* Loop until the user closes the window */
+	while (!glfwWindowShouldClose(window))
 	{
-		/* Loop until the user closes the window */
-		while (!glfwWindowShouldClose(window))
+		float currentFrame = static_cast<float>(glfwGetTime());
+		dt = currentFrame - lastFrame;
+		lastFrame = currentFrame;
+		GetInput();
+
+		/* Render here */
+		glClearColor(0.20f, 0.20f, 0.20f, 1.0f);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		//glClear(GL_COLOR_BUFFER_BIT);
+
+		//Store new data in the texture
+		//UpdateTexture();
+		//Render it
+		renderShader.Use();
+		CSG::SetData(renderShader);
+		renderShader.SetVec2("Resolution", vec2(width, height));
+		renderShader.SetFloat("Time", glfwGetTime());
+		renderShader.SetVec3("camEye", m_cam.camPos);
+		renderShader.SetVec3("camFront", m_cam.camFront);
+		RenderQuad();
+
+		if (updateShader)
 		{
-			/* Render here */
-			glClearColor(0.20f, 0.20f, 0.20f, 1.0f);
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			//glClear(GL_COLOR_BUFFER_BIT);
-
-			//Store new data in the texture
-			UpdateTexture();
-			//Render it
-			renderShader.Use();
-			RenderQuad();
-			/* Swap front and back buffers */
-			glfwSwapBuffers(window);
-
-			/* Poll for and process events */
-			glfwPollEvents();
+			renderShader = Shader{ "shaders/normal.vert","shaders/normal.frag" };
+			updateShader = false;
 		}
-		//Generate Image when window is closed
-		std::cout << "Saving Image into " << output_name << ".png" << std::endl;
-		GenerateImage();
+
+		/* Swap front and back buffers */
+		glfwSwapBuffers(window);
+
+		/* Poll for and process events */
+		glfwPollEvents();
 	}
-	else
-	{
-		//Generate Image when window is closed
-		std::cout << "Saving Image into " << output_name << ".png" << std::endl;
-		GenerateImage();
-	}
+
 	
 }
 /***********************************************
@@ -1065,6 +1102,98 @@ void Scene::UpdateTexture()
 		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, GL_FLOAT, intersection_data.data());
 	}
 }
+
+void Scene::GetInput()
+{
+
+	double xpos, ypos;
+	glfwGetCursorPos(window, &xpos, &ypos);
+
+	if (glfwGetKey(window, GLFW_KEY_F5)) {
+		renderShader = Shader{ "shaders/normal.vert","shaders/normal.frag" };
+	}
+
+	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2))
+	{
+		if (m_cam.orbital)
+		{
+
+			if (glfwGetKey(window, GLFW_KEY_Q)) {
+
+				m_cam.Radius++;
+
+			}
+			if (glfwGetKey(window, GLFW_KEY_E)) {
+
+				m_cam.Radius--;
+
+			}
+
+			m_cam.Radius -= offset.y;
+			offset.y = 0;
+			// View
+			vec2 cursor_delta = { (float)xpos - m_mouse_position.x, (float)ypos - m_mouse_position.y };
+			const float angleSpeed = 0.001f;
+			m_cam.AngleX += cursor_delta.x * angleSpeed;
+			const float max = glm::pi<float>() / 2.f;
+			float delta = cursor_delta.y * angleSpeed;
+			if (((m_cam.AngleY + delta) < max) && (m_cam.AngleY + delta) > (-max))
+			{
+				m_cam.AngleY += delta;
+			}
+
+
+		}
+
+		else
+		{
+			float speed = 1.0f;
+
+
+			if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT)) {
+				speed *= 3.0f;
+			}
+			if (glfwGetKey(window, GLFW_KEY_W)) {
+				m_cam.camPos += glm::normalize(m_cam.camFront) * dt * speed;
+			}
+			if (glfwGetKey(window, GLFW_KEY_S)) {
+				m_cam.camPos -= glm::normalize(m_cam.camFront) * dt * speed;
+			}
+			if (glfwGetKey(window, GLFW_KEY_A)) {
+				m_cam.camPos -= glm::normalize(m_cam.camRight) * dt * speed;
+			}
+			if (glfwGetKey(window, GLFW_KEY_D)) {
+				m_cam.camPos += glm::normalize(m_cam.camRight) * dt * speed;
+			}
+			if (glfwGetKey(window, GLFW_KEY_SPACE)) {
+				m_cam.camPos += m_cam.camUp * dt * speed;
+			}
+			if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL)) {
+				m_cam.camPos -= m_cam.camUp * dt * speed;
+			}
+
+			vec2 cursor_delta = { (float)xpos - m_mouse_position.x, (float)ypos - m_mouse_position.y };
+			const float angleSpeed = 0.1f;
+			m_cam.axisAngle += vec3(cursor_delta.y * angleSpeed, cursor_delta.x * angleSpeed, 0);
+
+			glm::quat q = glm::quat(glm::radians(m_cam.axisAngle));
+
+			m_cam.quaternion = q;
+
+
+			m_cam.RecalculateViewMatrix();
+		}
+
+
+
+	}
+
+	m_mouse_position = { xpos,ypos };
+
+	m_cam.RecalculateViewMatrix();
+
+}
+
 /***********************************************
 
 	Parse a sphere
@@ -1094,18 +1223,18 @@ Sphere parse_sphere(const std::string * lines)
 	std::string spec_exp = text_material.substr(0);
 
 	vec3 center;
-	float radius;
+	float m_radius;
 
 	center.x = std::stof(center_x);
 	center.y = std::stof(center_y);
 	center.z = std::stof(center_z);
 
-	radius = std::stof(text_radius);
+	m_radius = std::stof(text_radius);
 
 
 	Material mat = parse_material(&lines[1]);
 
-	Sphere sphere{ center,radius,mat };
+	Sphere sphere{ center,m_radius,mat };
 
 	return sphere;
 }
@@ -1152,9 +1281,9 @@ Light parse_light(const std::string * lines)
 
 	vec3 position = extract_vec3(text_position);
 	vec3 color = extract_vec3(text_color);
-	float radius = std::stof(text_radius);
+	float m_radius = std::stof(text_radius);
 
-	return Light(position,color,radius);
+	return Light(position,color,m_radius);
 }
 /***********************************************
 

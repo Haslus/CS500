@@ -14,6 +14,8 @@ Creation date: 1/8/2020
 #include "pch.h"
 #include "shapes.h"
 #include "shader.h"
+#include "CSG.h"
+#include "camera.h"
 
 Sphere parse_sphere(const std::string * lines);
 Box parse_box(const std::string * lines);
@@ -33,6 +35,7 @@ enum class AntiAliasing
 class Scene
 {
 public:
+	//Raycasting
 	Scene() = default;
 	Scene(const std::string & filepath, int width, int height, std::string output_name = "Out.png");
 	void Setup();
@@ -43,9 +46,23 @@ public:
 
 	vec3 AdpativeASubdivision(vec3 P,vec3 corner, vec3 delta_right, vec3 delta_down, int recursion);
 
+	//Constructive Solid Geometry
+	void GenerateRaysCSG(int begin, int end);
+
+
+
+	Camera m_cam;
+	vec2 m_mouse_position;
+
+	float dt = 0.0f;
+	float lastFrame = 0.0f;
+
+	/////
+
 	//Window Stuff
 	void InitializeWindow();
 	void UpdateWindow();
+	void GetInput();
 
 	void RenderQuad();
 	void UpdateTexture();
@@ -67,17 +84,15 @@ public:
 	vec3 global_ambient;
 	std::vector<Ray> rays;
 
-	int width;
-	int height;
-	int threads;
-
-	Camera camera;
+	int width = 500;
+	int height = 500;
+	int threads = 1;
 
 	std::string input_name;
 	std::string output_name;
 	std::vector<vec3> intersection_data;
 
-	float epsilon;
+	float epsilon = 0.0001f;
 
 	//Shadows
 	Shadows S_method;

@@ -20,18 +20,22 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dependencies\include\glad\glad.c" />
+    <ClCompile Include="src\camera.cpp" />
     <ClCompile Include="src\collision.cpp" />
     <ClCompile Include="src\pch.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\scene.cpp" />
+    <ClCompile Include="src\CSG.cpp" />
     <ClCompile Include="src\shader.cpp" />
     <ClCompile Include="src\shapes.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dependencies\include\glad\glad.h" />
+    <ClInclude Include="src\camera.h" />
     <ClInclude Include="src\collision.h" />
     <ClInclude Include="src\scene.h" />
     <ClInclude Include="src\pch.h" />
+    <ClInclude Include="src\CSG.h" />
     <ClInclude Include="src\shader.h" />
     <ClInclude Include="src\shapes.h" />
     <ClInclude Include="src\stb_image_write.h" />

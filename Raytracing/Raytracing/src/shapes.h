@@ -162,13 +162,3 @@ struct Light
 	//Physical representation of bulb
 	Sphere bulb;
 };
-
-
-struct Camera
-{
-
-	vec3 center;
-	vec3 up;
-	vec3 right;
-	float eye;
-};
