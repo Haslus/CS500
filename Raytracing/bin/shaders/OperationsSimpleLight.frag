@@ -34,7 +34,11 @@ uniform Operation operations[99];
 uniform vec2 Resolution;
 uniform float Time;
 
-const float smoothFactor = 0.1;
+
+uniform float smoothFactor = 0.1;
+uniform float twistFactor = 3;
+uniform float bendFactor = 3;
+uniform float displacementFactor = 3;
 
 const int MAX_MARCHING_STEPS = 255;
 const float MIN_DIST = 0.0;
@@ -302,49 +306,114 @@ float shapeSDF(vec3 samplePoint,int index)
 	
 }
 
-float getSDF(vec3 pos,int index, int type)
+float shapeSDFNoTransform(vec3 pos,int index)
 {
+	int type = shapes[index].type;
+	vec3 size = shapes[index].scale;
+	
+	switch(type)
+	{
+		case 0:
+		{
+			return sphereSDF(pos, size.x);
+			
+		}
+		case 1:
+		{
+			return cubeSDF(pos, size);
+			
+		}
+		case 2:
+		{
+			return torusSDF(pos, size.xy);
+			
+		}
+		case 3:
+		{
+			return roundBoxSDF(pos,size);
+		}
+		case 4:
+		{
+			return hexPrismSDF(pos,size.xy);
+		}
+		case 5:
+		{
+			return triPrismSDF(pos,size.xy);
+		}
+		case 6:
+		{
+			return capsuleSDF(pos,size.xy);
+		}
+		case 7:
+		{
+			return cappedCylinderSDF(pos,size.xy);
+		}
+		case 8:
+		{
+			return roundedCylinderSDF(pos,size);
+		}
+		case 9:
+		{
+			return cappedConeSDF(pos,size);
+		}
+		case 10:
+		{
+			return octahedronSDF(pos,size.x);
+		}
+		
+		
+	}
+	
+	
+	
+}
+
+float getSDF(vec3 samplePoint,int index, int type)
+{
+	mat3 M2W = getTransform(index);
+	vec3 pos = inverse(M2W) * ( samplePoint - shapes[index].position) ;
 	
 	
 	switch(type)
 	{
 		case 0:
 		{
-			float d1 = shapeSDF(pos,index);
+			float d1 = shapeSDFNoTransform(pos,index);
 			//Displacement Function
-			float d2 = sin(20 * pos.x) * sin(20 * pos.y) * sin(20 * pos.z);
+			float d2 = sin(displacementFactor * pos.x) * sin(displacementFactor * pos.y) 
+			* sin(displacementFactor * pos.z);
 			return d1 + d2;
 			
 		}
 		case 1:
 		{
-			const float k = 1.0;
+			float k = twistFactor;
 			float c = cos(k * pos.y);
 			float s = sin(k * pos.y);
 			mat2 m = mat2(c,-s,s,c);
 			vec3 q = vec3(m*pos.xz,pos.y);
-			return shapeSDF(q,index);
+			return shapeSDFNoTransform(q,index);
 			
 		}
 		case 2:
 		{
-			const float k = 0.3;
+			float k = bendFactor;
 			float c = cos(k * pos.x);
 			float s = sin(k * pos.x);
 			mat2 m = mat2(c,-s,s,c);
 			vec3 q = vec3(m*pos.xy,pos.z);
-			return shapeSDF(q,index);
+			return shapeSDFNoTransform(q,index);
 			
 		}
 		case 3:
 		{
 			const vec3 rep = vec3(3,3,3);
 			vec3 q = mod(pos+0.5*rep,rep) - 0.5*rep;
-			return shapeSDF(q,index);
+			return shapeSDFNoTransform(q,index);
 		}
 		case -1:
 		{
-			return shapeSDF(pos,index);
+			return shapeSDFNoTransform(pos,index);
 		}
 		
 	}
@@ -423,7 +492,7 @@ float sceneSDF(vec3 samplePoint)
 				}
 			}
 		}
-		
+
 		return opArray[opCount - 1];
 	
 	}
@@ -525,7 +594,7 @@ vec3 illumination(vec3 k_a, vec3 k_d, vec3 k_s, float alpha, vec3 point, vec3 ey
 	const vec3 ambientLight = 0.5 * vec3(1.0,1.0,1.0);
 	vec3 color = ambientLight * k_a;
 	
-	vec3 light1Pos = vec3(4,2,4);
+	vec3 light1Pos = vec3(5,5,5);
 	
 	vec3 light1Intensity = vec3(0.4,0.4,0.4);
 	

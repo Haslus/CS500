@@ -20,17 +20,6 @@ struct Shape
 
 uniform Shape shapes[99];
 
-//Operations
-uniform int opCount = 2;
-struct Operation
-{
-	int type;
-	int indexA;
-	int indexB;
-};
-
-uniform Operation operations[99];
-//
 uniform vec2 Resolution;
 uniform float Time;
 
@@ -302,144 +291,21 @@ float shapeSDF(vec3 samplePoint,int index)
 	
 }
 
-float getSDF(vec3 pos,int index, int type)
-{
-	
-	
-	switch(type)
-	{
-		case 0:
-		{
-			float d1 = shapeSDF(pos,index);
-			//Displacement Function
-			float d2 = sin(20 * pos.x) * sin(20 * pos.y) * sin(20 * pos.z);
-			return d1 + d2;
-			
-		}
-		case 1:
-		{
-			const float k = 1.0;
-			float c = cos(k * pos.y);
-			float s = sin(k * pos.y);
-			mat2 m = mat2(c,-s,s,c);
-			vec3 q = vec3(m*pos.xz,pos.y);
-			return shapeSDF(q,index);
-			
-		}
-		case 2:
-		{
-			const float k = 0.3;
-			float c = cos(k * pos.x);
-			float s = sin(k * pos.x);
-			mat2 m = mat2(c,-s,s,c);
-			vec3 q = vec3(m*pos.xy,pos.z);
-			return shapeSDF(q,index);
-			
-		}
-		case 3:
-		{
-			const vec3 rep = vec3(3,3,3);
-			vec3 q = mod(pos+0.5*rep,rep) - 0.5*rep;
-			return shapeSDF(q,index);
-		}
-		case -1:
-		{
-			return shapeSDF(pos,index);
-		}
-		
-	}
-	
-}
-
 
 float sceneSDF(vec3 samplePoint)
 {
-	if(DoOperations)
+
+	float t = MAX_DIST;
+	for(int i = 0; i < shapeCount; i++)
 	{
-		float opArray[99];
-	
-		for(int i = 0; i < opCount; i++)
-		{
-			
-			if(operations[i].type >= 6)
-			{
-				opArray[i] = getSDF(samplePoint,operations[i].indexA,operations[i].type - 6);
-			}
-			else
-			{
-			
-				float left, right;
-				if(operations[i].indexA < 0)
-				{
-					left = opArray[abs(operations[i].indexA) - 1];
-				}
-				else
-				{
-					left = shapeSDF(samplePoint,operations[i].indexA);
-				}
-				
-				if(operations[i].indexB < 0)
-				{
-					right = opArray[abs(operations[i].indexB) - 1];
-				}
-				else
-				{
-					right = shapeSDF(samplePoint,operations[i].indexB);
-				}
-				
-				switch(operations[i].type)
-				{
-					case 0:
-					{
-						opArray[i] = intersectSDF(left,right);
-						break;
-					}
-					case 1:
-					{
-						opArray[i] = unionSDF(left,right);
-						break;
-					}
-					case 2:
-					{
-						opArray[i] = differenceSDF(left,right);
-						break;
-					}
-					case 3:
-					{
-						opArray[i] = smoothIntersectSDF(left,right);
-						break;
-					}
-					case 4:
-					{
-						opArray[i] = smoothUnionSDF(left,right);
-						break;
-					}
-					case 5:
-					{
-						opArray[i] = smoothDifferenceSDF(left,right);
-						break;
-					}
-					
-				}
-			}
-		}
+		float current_t = shapeSDF(samplePoint,i);
 		
-		return opArray[opCount - 1];
+		if( current_t < t)
+			t = current_t;
+	}
 	
-	}
-	else
-	{
-		float t = MAX_DIST;
-		for(int i = 0; i < shapeCount; i++)
-		{
-			float current_t = shapeSDF(samplePoint,i);
-			
-			if( current_t < t)
-				t = current_t;
-		}
-		
-		return t;
-	}
+	return t;
+
 	
 	
 	
@@ -525,7 +391,7 @@ vec3 illumination(vec3 k_a, vec3 k_d, vec3 k_s, float alpha, vec3 point, vec3 ey
 	const vec3 ambientLight = 0.5 * vec3(1.0,1.0,1.0);
 	vec3 color = ambientLight * k_a;
 	
-	vec3 light1Pos = vec3(4,2,4);
+	vec3 light1Pos = vec3(5,5,5);
 	
 	vec3 light1Intensity = vec3(0.4,0.4,0.4);
 	

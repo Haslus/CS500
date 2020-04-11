@@ -9,7 +9,7 @@ uniform mat4 viewMat;
 uniform bool DoOperations;
 
 //Shapes
-uniform int shapeCount = 3;
+uniform int shapeCount;
 struct Shape
 {
 	int type;
@@ -18,10 +18,10 @@ struct Shape
 	vec3 rotation;
 };
 
-uniform Shape shapes[99];
+uniform Shape shapes[15];
 
 //Operations
-uniform int opCount = 2;
+uniform int opCount;
 struct Operation
 {
 	int type;
@@ -29,12 +29,10 @@ struct Operation
 	int indexB;
 };
 
-uniform Operation operations[99];
-//
+uniform Operation operations[15];
 uniform vec2 Resolution;
-uniform float Time;
 
-const float smoothFactor = 0.1;
+uniform float smoothFactor = 0.1;
 
 const int MAX_MARCHING_STEPS = 255;
 const float MIN_DIST = 0.0;
@@ -192,56 +190,9 @@ float sphereSDF(vec3 point, float radius)
 	return length(point) - radius;
 }
 
-/**
- * Rotation matrix around the X axis.
- */
-mat3 rotateX(float theta) {
-    float c = cos(theta);
-    float s = sin(theta);
-    return mat3(
-        vec3(1, 0, 0),
-        vec3(0, c, -s),
-        vec3(0, s, c)
-    );
-}
 
-/**
- * Rotation matrix around the Y axis.
- */
-mat3 rotateY(float theta) {
-    float c = cos(theta);
-    float s = sin(theta);
-    return mat3(
-        vec3(c, 0, s),
-        vec3(0, 1, 0),
-        vec3(-s, 0, c)
-    );
-}
-
-/**
- * Rotation matrix around the Z axis.
- */
-mat3 rotateZ(float theta) {
-    float c = cos(theta);
-    float s = sin(theta);
-    return mat3(
-        vec3(c, -s, 0),
-        vec3(s, c, 0),
-        vec3(0, 0, 1)
-    );
-}
-
-mat3 getTransform(int index)
+float shapeSDF(vec3 pos,int index)
 {
-	
-	vec3 rot = shapes[index].rotation;
-	
-	return rotateX(rot.x) * rotateY(rot.y) * rotateZ(rot.z);
-}
-float shapeSDF(vec3 samplePoint,int index)
-{
-	mat3 M2W = getTransform(index);
-	vec3 pos = inverse(M2W) * ( samplePoint - shapes[index].position) ;
 	int type = shapes[index].type;
 	vec3 size = shapes[index].scale;
 	
@@ -302,9 +253,57 @@ float shapeSDF(vec3 samplePoint,int index)
 	
 }
 
-float getSDF(vec3 pos,int index, int type)
+/**
+ * Rotation matrix around the X axis.
+ */
+mat3 rotateX(float theta) {
+    float c = cos(theta);
+    float s = sin(theta);
+    return mat3(
+        vec3(1, 0, 0),
+        vec3(0, c, -s),
+        vec3(0, s, c)
+    );
+}
+
+/**
+ * Rotation matrix around the Y axis.
+ */
+mat3 rotateY(float theta) {
+    float c = cos(theta);
+    float s = sin(theta);
+    return mat3(
+        vec3(c, 0, s),
+        vec3(0, 1, 0),
+        vec3(-s, 0, c)
+    );
+}
+
+/**
+ * Rotation matrix around the Z axis.
+ */
+mat3 rotateZ(float theta) {
+    float c = cos(theta);
+    float s = sin(theta);
+    return mat3(
+        vec3(c, -s, 0),
+        vec3(s, c, 0),
+        vec3(0, 0, 1)
+    );
+}
+
+mat3 getTransform(int index)
 {
 	
+	vec3 rot = shapes[index].rotation;
+	
+	return rotateX(rot.x) * rotateY(rot.y) * rotateZ(rot.z);
+}
+
+float getSDF(vec3 samplePoint,int index, int type)
+{
+	mat3 M2W = getTransform(index);
+	vec3 pos = inverse(M2W) * ( samplePoint - shapes[index].position) ;
 	
 	switch(type)
 	{
@@ -342,7 +341,7 @@ float getSDF(vec3 pos,int index, int type)
 			vec3 q = mod(pos+0.5*rep,rep) - 0.5*rep;
 			return shapeSDF(q,index);
 		}
-		case -1:
+		default:
 		{
 			return shapeSDF(pos,index);
 		}
@@ -432,7 +431,7 @@ float sceneSDF(vec3 samplePoint)
 		float t = MAX_DIST;
 		for(int i = 0; i < shapeCount; i++)
 		{
-			float current_t = shapeSDF(samplePoint,i);
+			float current_t = getSDF(samplePoint,i, -1);
 			
 			if( current_t < t)
 				t = current_t;

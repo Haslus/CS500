@@ -20,6 +20,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dependencies\include\glad\glad.c" />
+    <ClCompile Include="dependencies\src\imgui\imgui.cpp" />
+    <ClCompile Include="dependencies\src\imgui\imgui_demo.cpp" />
+    <ClCompile Include="dependencies\src\imgui\imgui_draw.cpp" />
+    <ClCompile Include="dependencies\src\imgui\imgui_impl_glfw.cpp" />
+    <ClCompile Include="dependencies\src\imgui\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="dependencies\src\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\camera.cpp" />
     <ClCompile Include="src\collision.cpp" />
     <ClCompile Include="src\pch.cpp" />
@@ -31,6 +37,14 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dependencies\include\glad\glad.h" />
+    <ClInclude Include="dependencies\src\imgui\imconfig.h" />
+    <ClInclude Include="dependencies\src\imgui\imgui.h" />
+    <ClInclude Include="dependencies\src\imgui\imgui_impl_glfw.h" />
+    <ClInclude Include="dependencies\src\imgui\imgui_impl_opengl3.h" />
+    <ClInclude Include="dependencies\src\imgui\imgui_internal.h" />
+    <ClInclude Include="dependencies\src\imgui\imstb_rectpack.h" />
+    <ClInclude Include="dependencies\src\imgui\imstb_textedit.h" />
+    <ClInclude Include="dependencies\src\imgui\imstb_truetype.h" />
     <ClInclude Include="src\camera.h" />
     <ClInclude Include="src\collision.h" />
     <ClInclude Include="src\scene.h" />
@@ -137,6 +151,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <AdditionalIncludeDirectories>$(ProjectDir)/dependencies/src</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -175,6 +190,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(ProjectDir)/dependencies/src</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

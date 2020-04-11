@@ -2,22 +2,23 @@
 #include "pch.h"
 #include "shader.h"
 
-namespace CSG
+class CSGManager
 {
+public:
 	enum CSGOperationType
 	{
-		Union,Intersect,Difference,
-		SUnion,SIntersect,SDifference
+		Intersect,Union,Difference,
+		SIntersect,SUnion,SDifference,
+		Displacement, Twist, Bend,
+		InfiniteRepetition
 	};
 
-	enum CSGDeformationType
-	{
-		Displacement,Twist,Bend
-	};
 
 	enum CSGShapeType
 	{
-		Sphere,Box,Torus,Link, Octahedron,Pyramid
+		Sphere, Box, Torus, RoundBox, HexagonalPrism,
+		TriangularPrism, Capsule, CappedCylinder, RoundedCylinder, CappedCone,
+		Octahedron
 	};
 
 	struct Transform
@@ -34,6 +35,9 @@ namespace CSG
 		vec3 m_position;
 		vec3 m_scale;
 		vec3 m_rotation;
+		glm::mat4 M2W;
+		void calculateM2W();
+
 	};
 
 	struct CSGOperation
@@ -43,10 +47,25 @@ namespace CSG
 		int indexB;
 	};
 
+	struct Scene
+	{
+		std::vector<CSGShape> shapes;
+		std::vector<CSGOperation> operations;
+	};
 
+	std::vector<Scene> scenes;
+	int current_scene = 0;
+	std::vector<CSGShape> CSGshapes;
+	std::vector<CSGOperation> CSGoperations;
+
+	void SaveScene(const std::string & name);
+	void LoadScene(const std::string & name);
+	void LoadAllScenes();
 
 	void Setup();
 
 	void SetData(Shader& shader);
 
-}
+	bool noOperations = false;
+
+};

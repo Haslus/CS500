@@ -15,11 +15,17 @@ Creation date: 1/8/2020
 #include <iostream>
 #include <fstream>
 #include <thread>
+#include <imgui/imgui.h>
+#include <imgui/imgui_impl_glfw.h>
+#include <imgui/imgui_impl_opengl3.h>
 #include <glm\gtc\random.hpp>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
 vec2 offset;
+std::string m_win_name;
+ImGuiWindowFlags m_flags;
+bool updateShader = false;
 
 static void error_callback(int error, const char* description)
 {
@@ -31,9 +37,6 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 	(void*)window;
 	offset = { xoffset,yoffset };
 }
-
-bool updateShader = false;
-
 
 /***********************************************
 
@@ -934,6 +937,214 @@ void Scene::GenerateRaysCSG(int begin, int end)
 #endif // RAYCASTING	
 }
 
+/**
+* @brief 	Initialize ImGUI
+*/
+bool Scene::initImGUI()
+{
+	ImGui::CreateContext();
+	ImGui::StyleColorsDark();
+	if (!ImGui_ImplGlfw_InitForOpenGL(window, true))
+		return false;
+
+	const char* imgui_version = "#version 130";
+
+	if (!ImGui_ImplOpenGL3_Init(imgui_version))
+		return false;
+
+	m_win_name = "Editor";
+
+	m_flags = 0;
+
+	return true;
+}
+/**
+* @brief 	Update ImGUI
+*/
+void Scene::updateImGUI()
+{
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+	renderImGUI();
+	//ImGui::ShowDemoWindow();
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+/**
+* @brief 	Render ImGUI
+*/
+void Scene::renderImGUI()
+{
+
+	ImGui::Begin("Scene", nullptr, m_flags);
+	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+	static char str[99];
+	ImGui::InputText("Scene Name", str,30);
+	if (ImGui::Button("Save Scene"))
+	{
+		CSG_Manager.SaveScene(str);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Load Scene"))
+	{
+		CSG_Manager.LoadScene(str);
+	}
+
+	if (ImGui::Button("No Operations / Simple Light"))
+	{
+		renderShader = NoOperationsSimpleLightShader;
+
+	}
+
+	if (ImGui::Button("No Operations"))
+	{
+		renderShader = NoOperationsShader;
+	}
+
+	if (ImGui::Button("Operations / Simple Light"))
+	{
+		renderShader = OperationsSimpleLightShader;
+	}
+
+
+	if(ImGui::Button("Add Shape"))
+	{
+		CSGManager::CSGShape sphere1{ CSGManager::CSGShapeType::Sphere ,vec3(0,0,0),vec3(1.0,1.0,1.0),vec3(0,0,0) };
+		CSG_Manager.CSGshapes.push_back(sphere1);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Add Operation"))
+	{
+		CSGManager::CSGOperation op1{ CSGManager::Difference,0,1 };
+		CSG_Manager.CSGoperations.push_back(op1);
+	}
+
+	if (ImGui::TreeNode("Shapes"))
+	{
+		for (int i = 0; i < CSG_Manager.CSGshapes.size(); i++)
+			if (ImGui::TreeNode((void*)(intptr_t)i, "Shape %d", i))
+			{
+				int shape = static_cast<int>(CSG_Manager.CSGshapes[i].type);
+
+				const char * items1[11] = { "Sphere","Box","Torus","RoundBox","HexagonalPrism",
+					"TriangularPrism", "Capsule","CappedCylinder", "RoundedCylinder", "CappedCone",
+				"Octahedron"};
+				ImGui::Combo("Shapes", &shape, items1, 11);
+				CSG_Manager.CSGshapes[i].type = static_cast<CSGManager::CSGShapeType>(shape);
+
+
+				ImGui::DragFloat3("Position", &CSG_Manager.CSGshapes[i].m_position.x, 0.1f);
+				
+				ImGui::DragFloat3("Scale", &CSG_Manager.CSGshapes[i].m_scale.x, 0.1f);
+
+				ImGui::DragFloat3("Rotation", &CSG_Manager.CSGshapes[i].m_rotation.x, 0.1f);
+					
+				ImGui::TreePop();
+			}
+		ImGui::TreePop();
+	}
+
+	if (ImGui::Checkbox("Activate Operations", &CSG_Manager.noOperations));
+
+	if (CSG_Manager.noOperations)
+	{
+		ImGui::DragFloat("Smooth Factor",&smoothFactor, 0.01);
+		ImGui::DragFloat("Twist Factor", &twistFactor, 0.01);
+		ImGui::DragFloat("Bend Factor", &bendFactor, 0.01);
+		ImGui::DragFloat("Displacement Factor", &displacementFactor, 0.01);
+	}
+
+	if (ImGui::TreeNode("Operations"))
+	{
+		std::vector<std::string> strings;
+
+		for (int i = 0; i < CSG_Manager.CSGshapes.size(); i++)
+		{
+			strings.push_back("Shape " + std::to_string(i));
+		}
+
+		for (int i = 0; i < CSG_Manager.CSGoperations.size(); i++)
+		{
+			strings.push_back("Operation " + std::to_string(i));
+		}
+
+		for (int i = 0; i < CSG_Manager.CSGoperations.size(); i++)
+			if (ImGui::TreeNode((void*)(intptr_t)i, "Operation %d", i))
+			{
+				int & indexA = CSG_Manager.CSGoperations[i].indexA;
+				int & indexB = CSG_Manager.CSGoperations[i].indexB;
+				int op = static_cast<int>(CSG_Manager.CSGoperations[i].type);
+
+				const char * items1[10] = { "Intersect","Union","Difference","SmoothIntersect","SmoothUnion","SmoothDifference",
+				"Displacement", "Twist", "Bend","InfiniteRepetition" };
+				ImGui::Combo("Operations", &op, items1, 10);
+				CSG_Manager.CSGoperations[i].type = static_cast<CSGManager::CSGOperationType>(op);
+
+
+				
+
+				int current_item = indexA < 0 ? std::abs(indexA + 1) + CSG_Manager.CSGshapes.size() : indexA;
+
+				if (ImGui::BeginCombo("Index A", strings[current_item].c_str())) // The second parameter is the label previewed before opening the combo.
+				{
+					for (int n = 0; n < strings.size(); n++)
+					{
+						bool is_selected = (strings[current_item] == strings[n]); // You can store your selection however you want, outside or inside your objects
+						if (ImGui::Selectable(strings[n].c_str(), is_selected))
+							current_item = n;
+							if (is_selected)
+								ImGui::SetItemDefaultFocus();   // You may set the initial focus when opening the combo (scrolling + for keyboard navigation support)
+					}
+					ImGui::EndCombo();
+				}
+
+				indexA = current_item >= CSG_Manager.CSGshapes.size() ? -static_cast<int>(current_item - CSG_Manager.CSGshapes.size() + 1) : current_item;
+
+				current_item = indexB < 0 ? std::abs(indexB + 1) + CSG_Manager.CSGshapes.size() : indexB;
+
+				if (ImGui::BeginCombo("Index B", strings[current_item].c_str())) // The second parameter is the label previewed before opening the combo.
+				{
+					for (int n = 0; n < strings.size(); n++)
+					{
+						bool is_selected = (strings[current_item] == strings[n]); // You can store your selection however you want, outside or inside your objects
+						if (ImGui::Selectable(strings[n].c_str(), is_selected))
+							current_item = n;
+						if (is_selected)
+							ImGui::SetItemDefaultFocus();   // You may set the initial focus when opening the combo (scrolling + for keyboard navigation support)
+					}
+					ImGui::EndCombo();
+				}
+
+				indexB = current_item >= CSG_Manager.CSGshapes.size() ? -static_cast<int>(current_item - CSG_Manager.CSGshapes.size() + 1) : current_item;
+
+
+
+				
+
+				//ImGui::Text("blah blah");
+				//ImGui::SameLine();
+				//if (ImGui::SmallButton("button")) {};
+				ImGui::TreePop();
+			}
+		ImGui::TreePop();
+	}
+
+	ImGui::End();
+
+
+}
+
+/**
+* @brief 	Exit ImGUI
+*/
+void Scene::exitImGUI()
+{
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+}
+
 /***********************************************
 
 	Create Window
@@ -980,10 +1191,14 @@ void Scene::InitializeWindow()
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 	glfwSwapInterval(1);
 
-	renderShader = Shader{ "shaders/normal.vert","shaders/normal.frag" };
-
+	//renderShader = Shader{ "shaders/normal.vert","shaders/normal.frag" };
+	NoOperationsSimpleLightShader = Shader{ "shaders/normal.vert","shaders/NoOperationsSimpleLight.frag" };
+	NoOperationsShader = Shader{ "shaders/normal.vert","shaders/NoOperations.frag" };
+	OperationsSimpleLightShader = Shader{ "shaders/normal.vert","shaders/OperationsSimpleLight.frag" };
+	renderShader = NoOperationsSimpleLightShader;
 	glfwSetScrollCallback(window, scroll_callback);
 	
+	initImGUI();
 
 }
 
@@ -994,7 +1209,7 @@ void Scene::InitializeWindow()
 ************************************************/
 void Scene::UpdateWindow()
 {
-	CSG::Setup();
+	CSG_Manager.Setup();
 	
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
@@ -1013,12 +1228,19 @@ void Scene::UpdateWindow()
 		//Store new data in the texture
 		//UpdateTexture();
 		//Render it
+		
 		renderShader.Use();
-		CSG::SetData(renderShader);
 		renderShader.SetVec2("Resolution", vec2(width, height));
-		renderShader.SetFloat("Time", glfwGetTime());
+
+		CSG_Manager.SetData(renderShader);
+
 		renderShader.SetVec3("camEye", m_cam.camPos);
 		renderShader.SetVec3("camFront", m_cam.camFront);
+		renderShader.SetVec3("camUp", m_cam.camUp);
+		renderShader.SetFloat("smoothFactor",smoothFactor);
+		renderShader.SetFloat("twistFactor", twistFactor);
+		renderShader.SetFloat("bendFactor", bendFactor);
+		renderShader.SetFloat("displacementFactor",displacementFactor);
 		RenderQuad();
 
 		if (updateShader)
@@ -1028,12 +1250,14 @@ void Scene::UpdateWindow()
 		}
 
 		/* Swap front and back buffers */
+		updateImGUI();
 		glfwSwapBuffers(window);
 
 		/* Poll for and process events */
 		glfwPollEvents();
 	}
 
+	exitImGUI();
 	
 }
 /***********************************************
@@ -1109,9 +1333,24 @@ void Scene::GetInput()
 	double xpos, ypos;
 	glfwGetCursorPos(window, &xpos, &ypos);
 
-	if (glfwGetKey(window, GLFW_KEY_F5)) {
-		renderShader = Shader{ "shaders/normal.vert","shaders/normal.frag" };
+	if (glfwGetKey(window, GLFW_KEY_F5)) 
+	{
+		NoOperationsSimpleLightShader = Shader{ "shaders/normal.vert","shaders/NoOperationsSimpleLight.frag" };
+		NoOperationsShader = Shader{ "shaders/normal.vert","shaders/NoOperations.frag" };
+		OperationsSimpleLightShader = Shader{ "shaders/normal.vert","shaders/OperationsSimpleLight.frag" };
 	}
+
+	//if (glfwGetKey(window, GLFW_KEY_1))
+	//{
+	//
+	//	CSG_Manager.CSGshapes[1].m_position += vec3(0.1, 0.0, 0.0);
+	//}
+	//
+	//if (glfwGetKey(window, GLFW_KEY_2))
+	//{
+	//
+	//	CSG_Manager.CSGshapes[1].m_position += vec3(-0.1, 0.0, 0.0);
+	//}
 
 	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2))
 	{
@@ -1147,7 +1386,7 @@ void Scene::GetInput()
 
 		else
 		{
-			float speed = 1.0f;
+			float speed = 3.0f;
 
 
 			if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT)) {

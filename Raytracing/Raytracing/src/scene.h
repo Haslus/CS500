@@ -49,7 +49,7 @@ public:
 	//Constructive Solid Geometry
 	void GenerateRaysCSG(int begin, int end);
 
-
+	CSGManager CSG_Manager;
 
 	Camera m_cam;
 	vec2 m_mouse_position;
@@ -58,6 +58,13 @@ public:
 	float lastFrame = 0.0f;
 
 	/////
+
+	//IMGUI
+	bool initImGUI();
+	void updateImGUI();
+	void renderImGUI();
+	void exitImGUI();
+
 
 	//Window Stuff
 	void InitializeWindow();
@@ -73,10 +80,17 @@ public:
 	unsigned int quadVAO = -1;
 
 	Shader renderShader;
+	Shader NoOperationsSimpleLightShader;
+	Shader NoOperationsShader;
+	Shader OperationsSimpleLightShader;
+	Shader currenShader;
 
 	bool preview = true;
 	//
-
+	float smoothFactor = 0.1;
+	float twistFactor = 0.9;
+	float bendFactor = 0.17;
+	float displacementFactor = 0.96;
 	std::vector<Base*> objects;
 	std::vector<Sphere> spheres;
 	std::vector<Box> boxes;
@@ -84,8 +98,8 @@ public:
 	vec3 global_ambient;
 	std::vector<Ray> rays;
 
-	int width = 500;
-	int height = 500;
+	int width = 1280;
+	int height = 720;
 	int threads = 1;
 
 	std::string input_name;
@@ -117,3 +131,4 @@ public:
 
 	
 };
+
