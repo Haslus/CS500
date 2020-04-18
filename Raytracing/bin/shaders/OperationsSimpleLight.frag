@@ -18,7 +18,7 @@ struct Shape
 	vec3 rotation;
 };
 
-uniform Shape shapes[99];
+uniform Shape shapes[50];
 
 //Operations
 uniform int opCount = 2;
@@ -29,7 +29,7 @@ struct Operation
 	int indexB;
 };
 
-uniform Operation operations[99];
+uniform Operation operations[50];
 //
 uniform vec2 Resolution;
 uniform float Time;

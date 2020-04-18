@@ -18,7 +18,7 @@ struct Shape
 	vec3 rotation;
 };
 
-uniform Shape shapes[99];
+uniform Shape shapes[50];
 
 //Operations
 uniform int opCount = 2;
@@ -29,7 +29,7 @@ struct Operation
 	int indexB;
 };
 
-uniform Operation operations[99];
+uniform Operation operations[50];
 //
 uniform vec2 Resolution;
 uniform float Time;
@@ -559,7 +559,6 @@ vec3 render(vec3 RO, vec3 RD, vec3 RDX, vec3 RDY)
         }
 
 
-		float occ = calcAO(pos,nor);
 		vec3  lig = normalize( vec3(-0.5, 0.4, -0.6) );
         vec3  hal = normalize( lig-RD );
 		float amb = sqrt(clamp( 0.5+0.5*nor.y, 0.0, 1.0 ));
@@ -577,10 +576,10 @@ vec3 render(vec3 RO, vec3 RD, vec3 RDX, vec3 RDY)
 
 		vec3 lin = vec3(0.0);
         lin += 3.80*dif*vec3(1.30,1.00,0.70);
-        lin += 0.55*amb*vec3(0.40,0.60,1.15)*occ;
-        lin += 0.85*dom*vec3(0.40,0.60,1.30)*occ;
-        lin += 0.55*bac*vec3(0.25,0.25,0.25)*occ;
-        lin += 0.25*fre*vec3(1.00,1.00,1.00)*occ;
+        lin += 0.55*amb*vec3(0.40,0.60,1.15);
+        lin += 0.85*dom*vec3(0.40,0.60,1.30);
+        lin += 0.55*bac*vec3(0.25,0.25,0.25);
+        lin += 0.25*fre*vec3(1.00,1.00,1.00);
 		col = col*lin;
 		col += 7.00*spe*vec3(1.10,0.90,0.70);
 

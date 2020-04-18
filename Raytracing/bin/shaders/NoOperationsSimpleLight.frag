@@ -18,7 +18,7 @@ struct Shape
 	vec3 rotation;
 };
 
-uniform Shape shapes[99];
+uniform Shape shapes[50];
 
 uniform vec2 Resolution;
 uniform float Time;
