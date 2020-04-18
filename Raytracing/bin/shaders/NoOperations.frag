@@ -83,21 +83,21 @@ float differenceSDF(float distA, float distB)
 
 float octahedronSDF(vec3 point, float s)
 {
-	
+
 	point = abs(point);
 	float m = point.x+point.y+point.z-s;
 	vec3 q;
 	if( 3.0*point.x < m )
 		q = point.xyz;
-	else if( 3.0*point.y < m ) 
+	else if( 3.0*point.y < m )
 		q = point.yzx;
-	else if( 3.0*point.z < m ) 
+	else if( 3.0*point.z < m )
 		q = point.zxy;
-	
+
 	else return m * 0.57735027;
-    
-  float k = clamp(0.5*(q.z-q.y+s),0.0,s); 
-  return length(vec3(q.x,q.y-s+k,q.z-k)); 
+
+  float k = clamp(0.5*(q.z-q.y+s),0.0,s);
+  return length(vec3(q.x,q.y-s+k,q.z-k));
 }
 
 float cappedConeSDF(vec3 point, vec3 scale)
@@ -136,16 +136,16 @@ float triPrismSDF(vec3 point, vec2 scale)
 	point.xy /= scale.x;
 	point.x = abs(point.x) - 1.0;
 	point.y = point.y + 1.0/k;
-	
+
 	if( point.x+k * point.y>0.0 )
 	{
 		point.xy=vec2(point.x-k * point.y,-k * point.x-point.y)/2.0;
-	}		
-	
+	}
+
     point.x -= clamp( point.x, -2.0, 0.0 );
     float d1 = length(point.xy)*sign(-point.y)*scale.x;
     float d2 = abs(point.z)-scale.y;
-	
+
     return length(max(vec2(d1,d2),0.0)) + min(max(d1,d2), 0.);
 }
 
@@ -156,18 +156,18 @@ float hexPrismSDF(vec3 point, vec2 scale)
 	point.xy -= 2.0*min(dot(k.xy,point.xy),0.0) * k.xy;
 	vec2 d = vec2(length(point.xy-vec2(clamp(point.x,-k.z*scale.x,k.z*scale.x ),scale.x)) * sign(point.y - scale.x),
 	point.z-scale.y);
-	
+
 	return min(max(d.x,d.y),0.0) + length(max(d,0.0));
-	
+
 }
 
 float roundBoxSDF(vec3 point, vec3 scale)
 {
 	vec3 d = abs(point) - scale;
-	
+
 	float insideD = min(max(d.x,max(d.y,d.z)),0.0) - smoothFactor;
 	float outsideD = length(max(d,0.0));
-	
+
 	return insideD + outsideD;
 }
 
@@ -180,10 +180,10 @@ float torusSDF(vec3 point, vec2 t)
 float cubeSDF(vec3 point, vec3 scale)
 {
 	vec3 d = abs(point) - scale;
-	
+
 	float insideD = min(max(d.x,max(d.y,d.z)),0.0);
 	float outsideD = length(max(d,0.0));
-	
+
 	return insideD + outsideD;
 }
 
@@ -234,9 +234,9 @@ mat3 rotateZ(float theta) {
 
 mat3 getTransform(int index)
 {
-	
+
 	vec3 rot = shapes[index].rotation;
-	
+
 	return rotateX(rot.x) * rotateY(rot.y) * rotateZ(rot.z);
 }
 
@@ -244,26 +244,26 @@ float shapeSDF(vec3 samplePoint,int index)
 {
 	mat3 M2W = getTransform(index);
 	vec3 pos = inverse(M2W) * ( samplePoint - shapes[index].position) ;
-	
+
 	int type = shapes[index].type;
 	vec3 size = shapes[index].scale;
-	
+
 	switch(type)
 	{
 		case 0:
 		{
 			return sphereSDF(pos, size.x);
-			
+
 		}
 		case 1:
 		{
 			return cubeSDF(pos, size);
-			
+
 		}
 		case 2:
 		{
 			return torusSDF(pos, size.xy);
-			
+
 		}
 		case 3:
 		{
@@ -297,19 +297,19 @@ float shapeSDF(vec3 samplePoint,int index)
 		{
 			return octahedronSDF(pos,size.x);
 		}
-		
-		
+
+
 	}
-	
-	
-	
+
+
+
 }
 
 
 float getSDF(vec3 pos,int index, int type)
 {
 
-	
+
 	switch(type)
 	{
 		case 0:
@@ -318,7 +318,7 @@ float getSDF(vec3 pos,int index, int type)
 			//Displacement Function
 			float d2 = sin(20 * pos.x) * sin(20 * pos.y) * sin(20 * pos.z);
 			return d1 + d2;
-			
+
 		}
 		case 1:
 		{
@@ -328,7 +328,7 @@ float getSDF(vec3 pos,int index, int type)
 			mat2 m = mat2(c,-s,s,c);
 			vec3 q = vec3(m*pos.xz,pos.y);
 			return shapeSDF(q,index);
-			
+
 		}
 		case 2:
 		{
@@ -338,7 +338,7 @@ float getSDF(vec3 pos,int index, int type)
 			mat2 m = mat2(c,-s,s,c);
 			vec3 q = vec3(m*pos.xy,pos.z);
 			return shapeSDF(q,index);
-			
+
 		}
 		case 3:
 		{
@@ -350,9 +350,9 @@ float getSDF(vec3 pos,int index, int type)
 		{
 			return shapeSDF(pos,index);
 		}
-		
+
 	}
-	
+
 }
 
 
@@ -363,41 +363,45 @@ float sceneSDF(vec3 samplePoint)
 	for(int i = 0; i < shapeCount; i++)
 	{
 		float current_t = getSDF(samplePoint,i, -1);
-		
+
 		if( current_t < t)
 			t = current_t;
 	}
-	
-	return t;
-	
-	
-	
-	
-}
 
+	return t;
+
+
+
+
+}
+//Raymarching
 float raymarch(vec3 eye, vec3 dir)
 {
 	float depth = MIN_DIST;
 	for(int i = 0; i < MAX_MARCHING_STEPS; i++)
 	{
+		//Throw ray
 		float dist = sceneSDF(eye + depth * dir);
+		//Check if we are inside or outside the surface
 		if(dist < EPSILON)
 		{
 			return depth;
 		}
+		//Advance ray with step
 		depth += dist;
+		//If the ray has reached a maximum distance
 		if(depth >= MAX_DIST)
 		{
 			return MAX_DIST;
 		}
-		
+
 	}
-	
+
 	return MAX_DIST;
-	
+
 }
 
-vec2 iBox( in vec3 ro, in vec3 rd, in vec3 rad ) 
+vec2 iBox( in vec3 ro, in vec3 rd, in vec3 rad )
 {
     vec3 m = 1.0/rd;
     vec3 n = m*ro;
@@ -412,10 +416,10 @@ vec2 iBox( in vec3 ro, in vec3 rd, in vec3 rad )
 vec2 castRay(vec3 rayOrigin, vec3 rayDir)
 {
 	vec2 res = vec2(-1.0,-1.0);
-	
+
 	float tmin = MIN_DIST;
 	float tmax = MAX_DIST;
-	
+
 	//floor
 	 float tp1 = (0.0-rayOrigin.y)/rayDir.y;
     if( tp1>0.0 )
@@ -423,7 +427,7 @@ vec2 castRay(vec3 rayOrigin, vec3 rayDir)
         tmax = min( tmax, tp1 );
         res = vec2( tp1, 1.0 );
     }
-	
+
 	vec2 tb = iBox( rayOrigin, rayDir, vec3(50,50,50) );
     if( tb.x<tb.y && tb.y>0.0 && tb.x<tmax)
     {
@@ -443,12 +447,12 @@ vec2 castRay(vec3 rayOrigin, vec3 rayDir)
 			{
 				return res;
 			}
-			
+
 		}
 	}
-	
-	
-	
+
+
+
 }
 
 vec3 estimateRayDirection(float FOV)
@@ -457,10 +461,10 @@ vec3 estimateRayDirection(float FOV)
 	float z = Resolution.y / tan(radians(FOV) / 2.0);
 	return normalize(vec3(xy,-z));
 }
-
+//Estimate the normal of a point
 vec3 estimateNormal(vec3 p)
 {
-					  
+
 	return normalize(vec3(
         sceneSDF(vec3(p.x + EPSILON, p.y, p.z)) - sceneSDF(vec3(p.x - EPSILON, p.y, p.z)),
         sceneSDF(vec3(p.x, p.y + EPSILON, p.z)) - sceneSDF(vec3(p.x, p.y - EPSILON, p.z)),
@@ -493,7 +497,7 @@ float softshadow(vec3 ro, vec3 rd, float mint, float maxt )
             return 0.0;
         t += h;
     }
-	
+
     return 1.0;
 }
 
@@ -511,8 +515,8 @@ float calcAO(vec3 pos, vec3 nor)
         sca *= 0.95;
     }
     return clamp( 1.0 - 3.0*occ, 0.0, 1.0 ) * (0.5+0.5*nor.y);
-	
-	
+
+
 }
 
 float checkersGradBox( vec2 p, vec2 dpdx, vec2 dpdy )
@@ -522,28 +526,28 @@ float checkersGradBox( vec2 p, vec2 dpdx, vec2 dpdy )
     // analytical integral (box filter)
     vec2 i = 2.0*(abs(fract((p-0.5*w)*0.5)-0.5)-abs(fract((p+0.5*w)*0.5)-0.5))/w;
     // xor pattern
-    return 0.5 - 0.5*i.x*i.y;                  
+    return 0.5 - 0.5*i.x*i.y;
 }
 
 vec3 render(vec3 RO, vec3 RD, vec3 RDX, vec3 RDY)
 {
 	vec3 col = vec3(0.7, 0.7, 0.9) - max(RD.y,0.0)*0.3;
 	vec2 res = castRay(RO,RD);
-	
+
 	float t = res.x;
 	float m = res.y;
 	if( m > -0.5 )
     {
-	
+
 		vec3 pos = RO + t * RD;
 		vec3 nor = (m<1.5) ? vec3(0.0,1.0,0.0) : estimateNormal( pos );
 		vec3 ref = reflect( RD, nor);
-		
-		// material        
+
+		// material
 		col = 0.2 + 0.18*sin( vec3(0.05,0.08,0.10)*(m-1.0) );
         //col = vec3(0.2);
         col = 0.2 + 0.18*sin( m*2.0 + vec3(0.0,0.5,1.0) );
-		
+
 		 if( m<1.5 )
         {
             // project pixel footprint into the plane
@@ -553,8 +557,8 @@ vec3 render(vec3 RO, vec3 RD, vec3 RDX, vec3 RDY)
             float f = checkersGradBox( 5.0*pos.xz, 5.0*dpdx.xz, 5.0*dpdy.xz );
             col = 0.15 + f*vec3(0.05);
         }
-		
-		
+
+
 		float occ = calcAO(pos,nor);
 		vec3  lig = normalize( vec3(-0.5, 0.4, -0.6) );
         vec3  hal = normalize( lig-RD );
@@ -563,7 +567,7 @@ vec3 render(vec3 RO, vec3 RD, vec3 RDX, vec3 RDY)
         float bac = clamp( dot( nor, normalize(vec3(-lig.x,0.0,-lig.z))), 0.0, 1.0 )*clamp( 1.0-pos.y,0.0,1.0);
         float dom = smoothstep( -0.2, 0.2, ref.y );
         float fre = pow( clamp(1.0+dot(nor,RD),0.0,1.0), 2.0 );
-        
+
         dif *= softshadow( pos, lig, 0.02, MAX_DIST);
         dom *= softshadow( pos, ref, 0.02, MAX_DIST);
 
@@ -580,51 +584,51 @@ vec3 render(vec3 RO, vec3 RD, vec3 RDX, vec3 RDY)
 		col = col*lin;
 		col += 7.00*spe*vec3(1.10,0.90,0.70);
 
-        
+
         col = mix( col, vec3(0.7,0.7,0.9), 1.0-exp( -0.000001*t*t*t ) );
     }
 
 	return vec3( clamp(col,0.0,1.0) );
-	
-	
+
+
 }
 
 void main()
-{           
+{
    vec3 viewDir = estimateRayDirection(45.0);
-   
+
    vec3 rayOrigin = camEye;
-  
+
    mat4 viewToWorld = viewMatrix(camEye,camEye + camFront,camUp);
-  
+
    vec3 rayDir = normalize((viewToWorld * vec4(normalize(viewDir), 0.0)).xyz);
-   
+
   // float dist = raymarch(rayOrigin, rayDir);
-   
+
    vec2 px = (2.0*(gl_FragCoord.xy + vec2(1.0,0.0))-Resolution.xy)/Resolution.y;
    vec2 py = (2.0*(gl_FragCoord.xy + vec2(0.0,1.0))-Resolution.xy)/Resolution.y;
    vec3 rdx = vec3(viewToWorld * vec4(normalize( vec3(px,viewDir.z) ),0));
    vec3 rdy = vec3(viewToWorld * vec4(normalize( vec3(py,viewDir.z) ),0));
-   
+
    //if(dist > MAX_DIST - EPSILON)
    //{
 	//    FragColor = vec4(0,0,0,0);
    //}
    //else
-   //{ 
-	   
+   //{
+
 	vec3 color = render(rayOrigin, rayDir, rdx, rdy);
-	
+
 	// gamma
     color = pow( color, vec3(0.4545) );
 
 	FragColor = vec4(color, 1.0);
   // }
-  
-  
-   
-   
-   
-   
-   
+
+
+
+
+
+
+
 }

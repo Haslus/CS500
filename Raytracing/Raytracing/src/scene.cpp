@@ -978,7 +978,7 @@ void Scene::renderImGUI()
 {
 
 	ImGui::Begin("Scene", nullptr, m_flags);
-	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+	//ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	static char str[99];
 	ImGui::InputText("Scene Name", str,30);
 	if (ImGui::Button("Save Scene"))
@@ -1386,7 +1386,7 @@ void Scene::GetInput()
 
 		else
 		{
-			float speed = 3.0f;
+			float speed = 5.0f;
 
 
 			if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT)) {

@@ -220,7 +220,7 @@ mat3 rotateZ(float theta) {
     );
 }
 
-mat3 getTransform(int index)
+mat3 getRotation(int index)
 {
 	
 	vec3 rot = shapes[index].rotation;
@@ -229,8 +229,8 @@ mat3 getTransform(int index)
 }
 float shapeSDF(vec3 samplePoint,int index)
 {
-	mat3 M2W = getTransform(index);
-	vec3 pos = inverse(M2W) * ( samplePoint - shapes[index].position) ;
+	mat3 M2W = getRotation(index);
+	vec3 pos = inverse(M2W) * (samplePoint - shapes[index].position);
 	int type = shapes[index].type;
 	vec3 size = shapes[index].scale;
 	
