@@ -123,7 +123,7 @@ void CSGManager::SetData(Shader & shader)
 		//shader.SetMat4("shapes[" + std::to_string(i) + "].M2W", CSGshapes[i].M2W);
 	}
 
-	shader.SetInt("shapeCount", CSGshapes.size());
+	shader.SetInt("shapeCount", static_cast<int>(CSGshapes.size()));
 
 	shader.SetBool("DoOperations", noOperations);
 
@@ -137,7 +137,7 @@ void CSGManager::SetData(Shader & shader)
 			//	shader.SetVec3("operations[" + std::to_string(i) + "].rotation", shapes[i].m_rotation);
 		}
 
-		shader.SetInt("opCount", CSGoperations.size());
+		shader.SetInt("opCount", static_cast<int>(CSGoperations.size()));
 	}
 	
 }

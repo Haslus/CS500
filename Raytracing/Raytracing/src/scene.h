@@ -62,10 +62,10 @@ public:
 
 	bool preview = true;
 	
-	float smoothFactor = 0.1;
-	float twistFactor = 0.9;
-	float bendFactor = 0.17;
-	float displacementFactor = 0.96;
+	float smoothFactor = 0.1f;
+	float twistFactor = 0.9f;
+	float bendFactor = 0.17f;
+	float displacementFactor = 0.96f;
 
 	int width = 1280;
 	int height = 720;

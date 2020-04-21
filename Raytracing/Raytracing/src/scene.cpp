@@ -153,14 +153,14 @@ void Scene::renderImGUI()
 		ImGui::TreePop();
 	}
 
-	if (ImGui::Checkbox("Activate Operations", &CSG_Manager.noOperations));
+	ImGui::Checkbox("Activate Operations", &CSG_Manager.noOperations);
 
 	if (CSG_Manager.noOperations)
 	{
-		ImGui::DragFloat("Smooth Factor",&smoothFactor, 0.01);
-		ImGui::DragFloat("Twist Factor", &twistFactor, 0.01);
-		ImGui::DragFloat("Bend Factor", &bendFactor, 0.01);
-		ImGui::DragFloat("Displacement Factor", &displacementFactor, 0.01);
+		ImGui::DragFloat("Smooth Factor",&smoothFactor, 0.001f,0.001f);
+		ImGui::DragFloat("Twist Factor", &twistFactor, 0.001f, 0.001f);
+		ImGui::DragFloat("Bend Factor", &bendFactor, 0.001f, 0.001f);
+		ImGui::DragFloat("Displacement Factor", &displacementFactor, 0.001f, 0.001f);
 	}
 
 	if (ImGui::TreeNode("Operations"))
@@ -192,7 +192,7 @@ void Scene::renderImGUI()
 
 				
 
-				int current_item = indexA < 0 ? std::abs(indexA + 1) + CSG_Manager.CSGshapes.size() : indexA;
+				int current_item = static_cast<int>(indexA < 0 ? std::abs(indexA + 1) + CSG_Manager.CSGshapes.size() : indexA);
 
 				if (ImGui::BeginCombo("Index A", strings[current_item].c_str())) 
 				{
@@ -209,7 +209,7 @@ void Scene::renderImGUI()
 
 				indexA = current_item >= CSG_Manager.CSGshapes.size() ? -static_cast<int>(current_item - CSG_Manager.CSGshapes.size() + 1) : current_item;
 
-				current_item = indexB < 0 ? std::abs(indexB + 1) + CSG_Manager.CSGshapes.size() : indexB;
+				current_item = static_cast<int>(indexB < 0 ? std::abs(indexB + 1) + CSG_Manager.CSGshapes.size() : indexB);
 
 				if (ImGui::BeginCombo("Index B", strings[current_item].c_str())) 
 				{

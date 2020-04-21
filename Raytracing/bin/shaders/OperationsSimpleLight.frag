@@ -5,11 +5,10 @@ out vec4 FragColor;
 uniform vec3 camEye;
 uniform vec3 camFront;
 uniform vec3 camUp;
-uniform mat4 viewMat;
-uniform bool DoOperations;
+
 
 //Shapes
-uniform int shapeCount = 3;
+
 struct Shape
 {
 	int type;
@@ -17,22 +16,22 @@ struct Shape
 	vec3 scale;
 	vec3 rotation;
 };
-
 uniform Shape shapes[50];
+uniform int shapeCount;
 
 //Operations
-uniform int opCount = 2;
+uniform bool DoOperations;
+
 struct Operation
 {
 	int type;
 	int indexA;
 	int indexB;
 };
-
 uniform Operation operations[50];
-//
+uniform int opCount;
+
 uniform vec2 Resolution;
-uniform float Time;
 
 
 uniform float smoothFactor = 0.1;
@@ -196,9 +195,9 @@ float sphereSDF(vec3 point, float radius)
 	return length(point) - radius;
 }
 
-/**
- * Rotation matrix around the X axis.
- */
+//////////////////////////////////////
+//Rotation matrix along X axis
+//////////////////////////////////////
 mat3 rotateX(float theta) {
     float c = cos(theta);
     float s = sin(theta);
@@ -209,9 +208,9 @@ mat3 rotateX(float theta) {
     );
 }
 
-/**
- * Rotation matrix around the Y axis.
- */
+//////////////////////////////////////
+//Rotation matrix along Y axis
+//////////////////////////////////////
 mat3 rotateY(float theta) {
     float c = cos(theta);
     float s = sin(theta);
@@ -222,9 +221,9 @@ mat3 rotateY(float theta) {
     );
 }
 
-/**
- * Rotation matrix around the Z axis.
- */
+//////////////////////////////////////
+//Rotation matrix along Z axis
+//////////////////////////////////////
 mat3 rotateZ(float theta) {
     float c = cos(theta);
     float s = sin(theta);
@@ -235,16 +234,25 @@ mat3 rotateZ(float theta) {
     );
 }
 
-mat3 getTransform(int index)
+//////////////////////////////////////
+//Concatenation of the three 
+//rotaton matrices
+//////////////////////////////////////
+mat3 getRotation(int index)
 {
 	
 	vec3 rot = shapes[index].rotation;
 	
 	return rotateX(rot.x) * rotateY(rot.y) * rotateZ(rot.z);
 }
+
+//////////////////////////////////////
+//Return SDF of the given index
+//////////////////////////////////////
 float shapeSDF(vec3 samplePoint,int index)
 {
-	mat3 M2W = getTransform(index);
+	mat3 M2W = getRotation(index);
+	//Apply inverse transformations
 	vec3 pos = inverse(M2W) * ( samplePoint - shapes[index].position) ;
 	int type = shapes[index].type;
 	vec3 size = shapes[index].scale;
@@ -305,7 +313,11 @@ float shapeSDF(vec3 samplePoint,int index)
 	
 	
 }
-
+//////////////////////////////////////
+//Return SDF of the given index,
+//no transformation applied,
+//used for SDF alterations
+//////////////////////////////////////
 float shapeSDFNoTransform(vec3 pos,int index)
 {
 	int type = shapes[index].type;
@@ -367,15 +379,19 @@ float shapeSDFNoTransform(vec3 pos,int index)
 	
 	
 }
-
+//////////////////////////////////////
+//Render SDFs and apply operations 
+//or alterations
+//////////////////////////////////////
 float getSDF(vec3 samplePoint,int index, int type)
 {
-	mat3 M2W = getTransform(index);
+	mat3 M2W = getRotation(index);
 	vec3 pos = inverse(M2W) * ( samplePoint - shapes[index].position) ;
 	
 	
 	switch(type)
 	{
+		//Displacement
 		case 0:
 		{
 			float d1 = shapeSDFNoTransform(pos,index);
@@ -385,6 +401,7 @@ float getSDF(vec3 samplePoint,int index, int type)
 			return d1 + d2;
 			
 		}
+		//Twist
 		case 1:
 		{
 			float k = twistFactor;
@@ -395,6 +412,7 @@ float getSDF(vec3 samplePoint,int index, int type)
 			return shapeSDFNoTransform(q,index);
 			
 		}
+		//Bend
 		case 2:
 		{
 			float k = bendFactor;
@@ -405,12 +423,14 @@ float getSDF(vec3 samplePoint,int index, int type)
 			return shapeSDFNoTransform(q,index);
 			
 		}
+		//Infinite Repetition
 		case 3:
 		{
 			const vec3 rep = vec3(3,3,3);
 			vec3 q = mod(pos+0.5*rep,rep) - 0.5*rep;
 			return shapeSDFNoTransform(q,index);
 		}
+		//No Alterations
 		case -1:
 		{
 			return shapeSDFNoTransform(pos,index);
@@ -429,14 +449,15 @@ float sceneSDF(vec3 samplePoint)
 	
 		for(int i = 0; i < opCount; i++)
 		{
-			
+			//Check if operation is an alteration
 			if(operations[i].type >= 6)
 			{
 				opArray[i] = getSDF(samplePoint,operations[i].indexA,operations[i].type - 6);
 			}
+			//Else it's a CSG operation
 			else
 			{
-			
+				//Get indices
 				float left, right;
 				if(operations[i].indexA < 0)
 				{
@@ -455,7 +476,7 @@ float sceneSDF(vec3 samplePoint)
 				{
 					right = shapeSDF(samplePoint,operations[i].indexB);
 				}
-				
+				//Apply operation
 				switch(operations[i].type)
 				{
 					case 0:
@@ -492,10 +513,11 @@ float sceneSDF(vec3 samplePoint)
 				}
 			}
 		}
-
+		//Get last operation as final result
 		return opArray[opCount - 1];
 	
 	}
+	//Else NO OPERATIONS
 	else
 	{
 		float t = MAX_DIST;
@@ -513,7 +535,9 @@ float sceneSDF(vec3 samplePoint)
 	
 	
 }
-
+//////////////////////////////////////
+//Raymarching
+//////////////////////////////////////
 float raymarch(vec3 eye, vec3 dir)
 {
 	float depth = MIN_DIST;
@@ -536,6 +560,9 @@ float raymarch(vec3 eye, vec3 dir)
 	
 }
 
+//////////////////////////////////////
+//Estimate the direction of the ray
+//////////////////////////////////////
 vec3 estimateRayDirection(float FOV)
 {
 	vec2 xy = gl_FragCoord.xy - Resolution / 2.0;
@@ -543,6 +570,9 @@ vec3 estimateRayDirection(float FOV)
 	return normalize(vec3(xy,-z));
 }
 
+//////////////////////////////////////
+//Estimate the normal of the current point
+//////////////////////////////////////
 vec3 estimateNormal(vec3 p)
 {
 	return normalize(vec3(
@@ -552,7 +582,9 @@ vec3 estimateNormal(vec3 p)
     ));
 }
 
-//This is basically glm::lookat()
+//////////////////////////////////////
+//GLM LOOK AT, create view matrix
+//////////////////////////////////////
 mat4 viewMatrix(vec3 eye, vec3 center, vec3 up)
 {
 	vec3 f = normalize(center - eye);
@@ -565,9 +597,11 @@ mat4 viewMatrix(vec3 eye, vec3 center, vec3 up)
         vec4(0.0, 0.0, 0.0, 1)
     );
 }
-
-vec3 phongLight(vec3 k_d, vec3 k_s, float alpha, vec3 p, vec3 eye,
-                          vec3 lightPos, vec3 lightIntensity) {
+//////////////////////////////////////
+//Phong Light model
+//////////////////////////////////////
+vec3 phongLight(vec3 k_d, vec3 k_s, float alpha, vec3 p, vec3 eye, vec3 lightPos, vec3 lightIntensity) 
+{
     vec3 N = estimateNormal(p);
     vec3 L = normalize(lightPos - p);
     vec3 V = normalize(eye - p);
@@ -575,20 +609,21 @@ vec3 phongLight(vec3 k_d, vec3 k_s, float alpha, vec3 p, vec3 eye,
     
     float dotLN = dot(L, N);
     float dotRV = dot(R, V);
-    
-    if (dotLN < 0.0) {
-        // Light not visible from this point on the surface
+	
+    //Light is not visible
+    if (dotLN < 0.0) 
         return vec3(0.0, 0.0, 0.0);
-    } 
-    
-    if (dotRV < 0.0) {
-        // Light reflection in opposite direction as viewer, apply only diffuse
-        // component
+   
+    //Light reflection in opposite direction as viewer, apply only diffuse
+    if (dotRV < 0.0) 
         return lightIntensity * (k_d * dotLN);
-    }
+	
     return lightIntensity * (k_d * dotLN + k_s * pow(dotRV, alpha));
 }
 
+//////////////////////////////////////
+//Lights in the scene
+//////////////////////////////////////
 vec3 illumination(vec3 k_a, vec3 k_d, vec3 k_s, float alpha, vec3 point, vec3 eye)
 {
 	const vec3 ambientLight = 0.5 * vec3(1.0,1.0,1.0);
@@ -604,24 +639,29 @@ vec3 illumination(vec3 k_a, vec3 k_d, vec3 k_s, float alpha, vec3 point, vec3 ey
 	
 }
 
+//////////////////////////////////////
+//Main
+//////////////////////////////////////
 void main()
 {           
+   //Get view direction
    vec3 viewDir = estimateRayDirection(45.0);
-   
+   //Get ray origin (position of camera)
    vec3 rayOrigin = camEye;
-  
-   mat4 viewToWorld = viewMatrix(camEye,camEye + camFront,camUp);
-  
-   vec3 rayDir = (viewToWorld * vec4(viewDir, 0.0)).xyz;
+   //Get view matrix
+   mat4 view = viewMatrix(camEye,camEye + camFront,camUp);
+   //Get ray direction
+   vec3 rayDir = (view * vec4(viewDir, 0.0)).xyz;
    
    float dist = raymarch(rayOrigin, rayDir);
    
    
-   
+   //No SDF encountered
    if(dist > MAX_DIST - EPSILON)
    {
 	    FragColor = vec4(0,0,0,0);
    }
+   //Calculate light
    else
    { 
 	   

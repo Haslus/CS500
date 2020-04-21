@@ -5,11 +5,8 @@ out vec4 FragColor;
 uniform vec3 camEye;
 uniform vec3 camFront;
 uniform vec3 camUp;
-uniform mat4 viewMat;
-uniform bool DoOperations;
 
 //Shapes
-uniform int shapeCount = 3;
 struct Shape
 {
 	int type;
@@ -17,65 +14,16 @@ struct Shape
 	vec3 scale;
 	vec3 rotation;
 };
-
 uniform Shape shapes[50];
+uniform int shapeCount;
 
-//Operations
-uniform int opCount = 2;
-struct Operation
-{
-	int type;
-	int indexA;
-	int indexB;
-};
-
-uniform Operation operations[50];
-//
+uniform float smoothFactor = 0.1;
 uniform vec2 Resolution;
-uniform float Time;
-
-const float smoothFactor = 0.1;
 
 const int MAX_MARCHING_STEPS = 255;
 const float MIN_DIST = 0.0;
 const float MAX_DIST = 300.0;
 const float EPSILON = 0.0001;
-
-//////////////////////////////////////
-//CSG FUNCTIONS
-//////////////////////////////////////
-float smoothUnionSDF(float distA, float distB)
-{
-	float h = clamp( 0.5 + 0.5 * (distB - distA) / smoothFactor, 0.0, 1.0);
-	return mix(distB, distA, h) - smoothFactor * h * (1.0 - h);
-}
-
-float smoothIntersectSDF(float distA, float distB)
-{
-	float h = clamp( 0.5 - 0.5 * (distB - distA) / smoothFactor, 0.0, 1.0);
-	return mix(distB, distA, h) + smoothFactor * h * (1.0 - h);
-}
-
-float smoothDifferenceSDF(float distA, float distB)
-{
-	float h = clamp( 0.5 - 0.5 * (distB + distA) / smoothFactor, 0.0, 1.0);
-	return mix(distB, -distA, h) + smoothFactor * h * (1.0 - h);
-}
-
-float unionSDF(float distA, float distB)
-{
-	return min(distA, distB);
-}
-
-float intersectSDF(float distA, float distB)
-{
-	return max(distA,distB);
-}
-
-float differenceSDF(float distA, float distB)
-{
-	return max(-distA, distB);
-}
 
 //////////////////////////////////////
 //SDF FUNCTIONS
@@ -192,10 +140,9 @@ float sphereSDF(vec3 point, float radius)
 	return length(point) - radius;
 }
 
-
-/**
- * Rotation matrix around the X axis.
- */
+//////////////////////////////////////
+//Rotation matrix along X axis
+//////////////////////////////////////
 mat3 rotateX(float theta) {
     float c = cos(theta);
     float s = sin(theta);
@@ -206,9 +153,9 @@ mat3 rotateX(float theta) {
     );
 }
 
-/**
- * Rotation matrix around the Y axis.
- */
+//////////////////////////////////////
+//Rotation matrix along Y axis
+//////////////////////////////////////
 mat3 rotateY(float theta) {
     float c = cos(theta);
     float s = sin(theta);
@@ -219,9 +166,9 @@ mat3 rotateY(float theta) {
     );
 }
 
-/**
- * Rotation matrix around the Z axis.
- */
+//////////////////////////////////////
+//Rotation matrix along Z axis
+//////////////////////////////////////
 mat3 rotateZ(float theta) {
     float c = cos(theta);
     float s = sin(theta);
@@ -232,19 +179,26 @@ mat3 rotateZ(float theta) {
     );
 }
 
-mat3 getTransform(int index)
+//////////////////////////////////////
+//Concatenation of the three 
+//rotaton matrices
+//////////////////////////////////////
+mat3 getRotation(int index)
 {
-
+	
 	vec3 rot = shapes[index].rotation;
-
+	
 	return rotateX(rot.x) * rotateY(rot.y) * rotateZ(rot.z);
 }
 
+//////////////////////////////////////
+//Return SDF of the given index
+//////////////////////////////////////
 float shapeSDF(vec3 samplePoint,int index)
 {
-	mat3 M2W = getTransform(index);
-	vec3 pos = inverse(M2W) * ( samplePoint - shapes[index].position) ;
-
+	mat3 M2W = getRotation(index);
+	//Apply inverse transformations
+	vec3 pos = inverse(M2W) * (samplePoint - shapes[index].position);
 	int type = shapes[index].type;
 	vec3 size = shapes[index].scale;
 
@@ -305,102 +259,31 @@ float shapeSDF(vec3 samplePoint,int index)
 
 }
 
-
-float getSDF(vec3 pos,int index, int type)
-{
-
-
-	switch(type)
-	{
-		case 0:
-		{
-			float d1 = shapeSDF(pos,index);
-			//Displacement Function
-			float d2 = sin(20 * pos.x) * sin(20 * pos.y) * sin(20 * pos.z);
-			return d1 + d2;
-
-		}
-		case 1:
-		{
-			const float k = 1.0;
-			float c = cos(k * pos.y);
-			float s = sin(k * pos.y);
-			mat2 m = mat2(c,-s,s,c);
-			vec3 q = vec3(m*pos.xz,pos.y);
-			return shapeSDF(q,index);
-
-		}
-		case 2:
-		{
-			const float k = 0.3;
-			float c = cos(k * pos.x);
-			float s = sin(k * pos.x);
-			mat2 m = mat2(c,-s,s,c);
-			vec3 q = vec3(m*pos.xy,pos.z);
-			return shapeSDF(q,index);
-
-		}
-		case 3:
-		{
-			const vec3 rep = vec3(3,3,3);
-			vec3 q = mod(pos+0.5*rep,rep) - 0.5*rep;
-			return shapeSDF(q,index);
-		}
-		default:
-		{
-			return shapeSDF(pos,index);
-		}
-
-	}
-
-}
-
-
+//////////////////////////////////////
+//Render each shape of the scene
+//////////////////////////////////////
 float sceneSDF(vec3 samplePoint)
 {
 
 	float t = MAX_DIST;
 	for(int i = 0; i < shapeCount; i++)
 	{
-		float current_t = getSDF(samplePoint,i, -1);
-
+		float current_t = shapeSDF(samplePoint,i);
+		
 		if( current_t < t)
 			t = current_t;
 	}
-
+	
 	return t;
 
-
-
-
-}
-//Raymarching
-float raymarch(vec3 eye, vec3 dir)
-{
-	float depth = MIN_DIST;
-	for(int i = 0; i < MAX_MARCHING_STEPS; i++)
-	{
-		//Throw ray
-		float dist = sceneSDF(eye + depth * dir);
-		//Check if we are inside or outside the surface
-		if(dist < EPSILON)
-		{
-			return depth;
-		}
-		//Advance ray with step
-		depth += dist;
-		//If the ray has reached a maximum distance
-		if(depth >= MAX_DIST)
-		{
-			return MAX_DIST;
-		}
-
-	}
-
-	return MAX_DIST;
-
+	
+	
+	
 }
 
+//////////////////////////////////////
+//AABB that encapsulates what to render
+//////////////////////////////////////
 vec2 iBox( in vec3 ro, in vec3 rd, in vec3 rad )
 {
     vec3 m = 1.0/rd;
@@ -412,7 +295,9 @@ vec2 iBox( in vec3 ro, in vec3 rd, in vec3 rad )
 	             min( min( t2.x, t2.y ), t2.z ) );
 }
 
-
+//////////////////////////////////////
+//Raymarching
+//////////////////////////////////////
 vec2 castRay(vec3 rayOrigin, vec3 rayDir)
 {
 	vec2 res = vec2(-1.0,-1.0);
@@ -421,16 +306,17 @@ vec2 castRay(vec3 rayOrigin, vec3 rayDir)
 	float tmax = MAX_DIST;
 
 	//floor
-	 float tp1 = (0.0-rayOrigin.y)/rayDir.y;
+	float tp1 = (0.0-rayOrigin.y)/rayDir.y;
     if( tp1>0.0 )
     {
         tmax = min( tmax, tp1 );
         res = vec2( tp1, 1.0 );
     }
-
+	//Check if it's inside renderable box
 	vec2 tb = iBox( rayOrigin, rayDir, vec3(50,50,50) );
     if( tb.x<tb.y && tb.y>0.0 && tb.x<tmax)
     {
+		//Raymarch
         tmin = max(tb.x,tmin);
         tmax = min(tb.y,tmax);
 		float t = tmin;
@@ -455,16 +341,21 @@ vec2 castRay(vec3 rayOrigin, vec3 rayDir)
 
 }
 
+//////////////////////////////////////
+//Estimate the direction of the ray
+//////////////////////////////////////
 vec3 estimateRayDirection(float FOV)
 {
 	vec2 xy = gl_FragCoord.xy - Resolution / 2.0;
 	float z = Resolution.y / tan(radians(FOV) / 2.0);
 	return normalize(vec3(xy,-z));
 }
-//Estimate the normal of a point
+
+//////////////////////////////////////
+//Estimate the normal of the current point
+//////////////////////////////////////
 vec3 estimateNormal(vec3 p)
 {
-
 	return normalize(vec3(
         sceneSDF(vec3(p.x + EPSILON, p.y, p.z)) - sceneSDF(vec3(p.x - EPSILON, p.y, p.z)),
         sceneSDF(vec3(p.x, p.y + EPSILON, p.z)) - sceneSDF(vec3(p.x, p.y - EPSILON, p.z)),
@@ -472,7 +363,9 @@ vec3 estimateNormal(vec3 p)
     ));
 }
 
-//This is basically glm::lookat()
+//////////////////////////////////////
+//GLM LOOK AT, create view matrix
+//////////////////////////////////////
 mat4 viewMatrix(vec3 eye, vec3 center, vec3 up)
 {
 	vec3 f = normalize(center - eye);
@@ -486,8 +379,10 @@ mat4 viewMatrix(vec3 eye, vec3 center, vec3 up)
     );
 }
 
-
-float softshadow(vec3 ro, vec3 rd, float mint, float maxt )
+//////////////////////////////////////
+//Hard Shadow
+//////////////////////////////////////
+float shadow(vec3 ro, vec3 rd, float mint, float maxt )
 {
 
     for( float t=mint; t<maxt; )
@@ -500,25 +395,9 @@ float softshadow(vec3 ro, vec3 rd, float mint, float maxt )
 
     return 1.0;
 }
-
-
-float calcAO(vec3 pos, vec3 nor)
-{
-	float occ = 0.0;
-	float sca = 1.0;
-	for(int i = 0; i < 5; i++)
-	{
-        float hr = 0.01 + 0.12*float(i)/4.0;
-        vec3 aopos =  nor * hr + pos;
-        float dd = sceneSDF( aopos );
-        occ += -(dd-hr)*sca;
-        sca *= 0.95;
-    }
-    return clamp( 1.0 - 3.0*occ, 0.0, 1.0 ) * (0.5+0.5*nor.y);
-
-
-}
-
+//////////////////////////////////////
+//Render Floor (Taken from Inigo Quirez)
+//////////////////////////////////////
 float checkersGradBox( vec2 p, vec2 dpdx, vec2 dpdy )
 {
     // filter kernel
@@ -529,6 +408,9 @@ float checkersGradBox( vec2 p, vec2 dpdx, vec2 dpdy )
     return 0.5 - 0.5*i.x*i.y;
 }
 
+//////////////////////////////////////
+//Render scene
+//////////////////////////////////////
 vec3 render(vec3 RO, vec3 RD, vec3 RDX, vec3 RDY)
 {
 	vec3 col = vec3(0.7, 0.7, 0.9) - max(RD.y,0.0)*0.3;
@@ -544,11 +426,12 @@ vec3 render(vec3 RO, vec3 RD, vec3 RDX, vec3 RDY)
 		vec3 ref = reflect( RD, nor);
 
 		// material
-		col = 0.2 + 0.18*sin( vec3(0.05,0.08,0.10)*(m-1.0) );
+		//col = 0.2 + 0.18*sin( vec3(0.05,0.08,0.10)*(m-1.0) );
         //col = vec3(0.2);
         col = 0.2 + 0.18*sin( m*2.0 + vec3(0.0,0.5,1.0) );
 
-		 if( m<1.5 )
+		//Draw infinite floor for the scene
+		if(m<1.5 )
         {
             // project pixel footprint into the plane
             vec3 dpdx = RO.y*(RD/RD.y-RDX/RDX.y);
@@ -558,7 +441,7 @@ vec3 render(vec3 RO, vec3 RD, vec3 RDX, vec3 RDY)
             col = 0.15 + f*vec3(0.05);
         }
 
-
+		//Calculate light components (Taken from Inigo Quirez)
 		vec3  lig = normalize( vec3(-0.5, 0.4, -0.6) );
         vec3  hal = normalize( lig-RD );
 		float amb = sqrt(clamp( 0.5+0.5*nor.y, 0.0, 1.0 ));
@@ -567,8 +450,9 @@ vec3 render(vec3 RO, vec3 RD, vec3 RDX, vec3 RDY)
         float dom = smoothstep( -0.2, 0.2, ref.y );
         float fre = pow( clamp(1.0+dot(nor,RD),0.0,1.0), 2.0 );
 
-        dif *= softshadow( pos, lig, 0.02, MAX_DIST);
-        dom *= softshadow( pos, ref, 0.02, MAX_DIST);
+		//Calcualte shadow for the floor and reflection
+        dif *= shadow( pos, lig, 0.02, MAX_DIST);
+        dom *= shadow( pos, ref, 0.02, MAX_DIST);
 
 		float spe = pow( clamp( dot( nor, hal ), 0.0, 1.0 ),16.0)*
                     dif *
@@ -592,37 +476,31 @@ vec3 render(vec3 RO, vec3 RD, vec3 RDX, vec3 RDY)
 
 }
 
+//////////////////////////////////////
+//Main
+//////////////////////////////////////
 void main()
 {
-   vec3 viewDir = estimateRayDirection(45.0);
+	vec3 viewDir = estimateRayDirection(45.0);
 
-   vec3 rayOrigin = camEye;
+	vec3 rayOrigin = camEye;
 
-   mat4 viewToWorld = viewMatrix(camEye,camEye + camFront,camUp);
+	mat4 viewToWorld = viewMatrix(camEye,camEye + camFront,camUp);
 
-   vec3 rayDir = normalize((viewToWorld * vec4(normalize(viewDir), 0.0)).xyz);
+	vec3 rayDir = normalize((viewToWorld * vec4(normalize(viewDir), 0.0)).xyz);
 
-  // float dist = raymarch(rayOrigin, rayDir);
-
-   vec2 px = (2.0*(gl_FragCoord.xy + vec2(1.0,0.0))-Resolution.xy)/Resolution.y;
-   vec2 py = (2.0*(gl_FragCoord.xy + vec2(0.0,1.0))-Resolution.xy)/Resolution.y;
-   vec3 rdx = vec3(viewToWorld * vec4(normalize( vec3(px,viewDir.z) ),0));
-   vec3 rdy = vec3(viewToWorld * vec4(normalize( vec3(py,viewDir.z) ),0));
-
-   //if(dist > MAX_DIST - EPSILON)
-   //{
-	//    FragColor = vec4(0,0,0,0);
-   //}
-   //else
-   //{
+	//Calculate derivatives for rendering the floor
+	vec2 px = (2.0*(gl_FragCoord.xy + vec2(1.0,0.0))-Resolution.xy)/Resolution.y;
+	vec2 py = (2.0*(gl_FragCoord.xy + vec2(0.0,1.0))-Resolution.xy)/Resolution.y;
+	vec3 rdx = vec3(viewToWorld * vec4(normalize( vec3(px,viewDir.z) ),0));
+	vec3 rdy = vec3(viewToWorld * vec4(normalize( vec3(py,viewDir.z) ),0));
 
 	vec3 color = render(rayOrigin, rayDir, rdx, rdy);
 
-	// gamma
-    color = pow( color, vec3(0.4545) );
+	//Gamma
+	color = pow( color, vec3(0.4545) );
 
 	FragColor = vec4(color, 1.0);
-  // }
 
 
 

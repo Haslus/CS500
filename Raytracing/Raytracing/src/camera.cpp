@@ -5,6 +5,15 @@
 */
 Camera::Camera()
 {
+	vec2 cursor_delta = { 0,0 };
+	const float angleSpeed = 0.1f;
+	axisAngle += vec3(cursor_delta.y * angleSpeed, cursor_delta.x * angleSpeed, 0);
+
+	glm::quat q = glm::quat(glm::radians(axisAngle));
+
+	quaternion = q;
+
+
 	RecalculateViewMatrix();
 }
 /**
