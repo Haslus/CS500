@@ -1,1 +1,1 @@
-CS500
+CS500 - Raytracer
